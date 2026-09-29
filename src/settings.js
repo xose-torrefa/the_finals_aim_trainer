@@ -37,6 +37,7 @@ export const DEFAULTS = {
   targetDistance: 20,
   targetSpeed: 1,
   targetJumps: true,
+  sphereScale: 1,
 
   // Jugador
   allowMove: true,
@@ -88,6 +89,7 @@ export const SETTINGS_SCHEMA = [
       { key: 'targetDistance', label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
       { key: 'targetSpeed', label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
       { key: 'targetJumps', label: 'Saltos / dashes', type: 'checkbox' },
+      { key: 'sphereScale', label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
     ],
   },
   {

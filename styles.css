@@ -160,6 +160,8 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: v
 .scenario:has(input:checked) { border-color: var(--accent); background: rgba(255, 46, 99, 0.08); }
 .scenario input { margin-top: 3px; accent-color: var(--accent); }
 .scenario p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.scenarios h3 { margin: 8px 0 0; font-size: 12px; color: var(--muted); font-weight: 600; }
+.scenarios h3:first-child { margin-top: 0; }
 
 .actions { display: flex; gap: 8px; margin-top: 16px; }
 button {

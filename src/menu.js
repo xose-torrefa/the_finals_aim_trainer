@@ -13,7 +13,7 @@ function h(tag, props = {}, ...children) {
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el[k] = v;
   }
-  for (const c of children.flat()) {
+  for (const c of children.flat(Infinity)) {
     if (c !== null && c !== undefined && c !== false) el.append(c);
   }
   return el;
@@ -35,13 +35,17 @@ export class Menu {
   build() {
     const s = this.settings;
 
+    const groups = Map.groupBy(Object.entries(SCENARIOS), ([, sc]) => sc.group);
     this.scenarioList = h('div', { class: 'scenarios' },
-      Object.entries(SCENARIOS).map(([key, sc]) => {
-        const input = h('input', { type: 'radio', name: 'scenario', value: key, checked: s.scenario === key,
-          onchange: () => this.set('scenario', key) });
-        return h('label', { class: 'scenario' }, input,
-          h('div', {}, h('strong', {}, sc.name), h('p', {}, sc.desc)));
-      }));
+      [...groups].map(([group, entries]) => [
+        h('h3', {}, group),
+        entries.map(([key, sc]) => {
+          const input = h('input', { type: 'radio', name: 'scenario', value: key, checked: s.scenario === key,
+            onchange: () => this.set('scenario', key) });
+          return h('label', { class: 'scenario' }, input,
+            h('div', {}, h('strong', {}, sc.name), h('p', {}, sc.desc)));
+        }),
+      ]));
 
     this.startBtn = h('button', { class: 'primary', onclick: () => this.handlers.onStart() }, 'Empezar');
     this.resumeBtn = h('button', { class: 'primary', onclick: () => this.handlers.onResume() }, 'Continuar');

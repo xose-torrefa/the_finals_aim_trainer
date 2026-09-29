@@ -15,6 +15,10 @@ Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
 - **Duelo**: un enemigo con la vida de su clase (Light 150 / Medium 250 / Heavy 350). Mide reacción, TTK y TTK ideal.
 - **Cambio de objetivo**: tres enemigos a la vez.
 - **Flick ADS**: objetivos estáticos de un impacto en un arco de 120°.
+- **Tracking cercano**: humanoide a 7 m que cambia de dirección sin parar, se acerca y se aleja, salta y dashea.
+- **Gridshot** (esferas): tres esferas a la vez en una cuadrícula.
+- **Precisión** (esferas): esfera pequeña que reaparece a pocos grados de la anterior.
+- **Tracking 3D** (esferas): esfera flotante con trayectorias suaves en 3D.
 
 ## Sensibilidad y FOV
 

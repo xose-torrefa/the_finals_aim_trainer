@@ -1,5 +1,5 @@
 import * as THREE from '/lib/three/three.module.js';
-import { Target, pickClass, CLASSES } from './target.js';
+import { Target, SphereTarget, pickClass, CLASSES } from './target.js';
 import { idealTTK } from './weapons.js';
 import { DEG } from './settings.js';
 
@@ -23,6 +23,17 @@ export function createStats() {
 function spawnPoint(player, dist, yawDeg) {
   const a = yawDeg * DEG;
   return new THREE.Vector3(player.pos.x - Math.sin(a) * dist, 0, player.pos.z - Math.cos(a) * dist);
+}
+
+/** Punto a `dist` metros de los ojos del jugador en la dirección (yaw, pitch) en grados. */
+function aimPoint(player, dist, yawDeg, pitchDeg) {
+  const y = yawDeg * DEG;
+  const p = pitchDeg * DEG;
+  return new THREE.Vector3(
+    player.pos.x - Math.sin(y) * Math.cos(p) * dist,
+    player.pos.y + Math.sin(p) * dist,
+    player.pos.z - Math.cos(y) * Math.cos(p) * dist,
+  );
 }
 
 class Scenario {
@@ -59,6 +70,13 @@ class Scenario {
     return t;
   }
 
+  newSphere(opts) {
+    const t = new SphereTarget(this.ctx.scene, { ...opts, radius: opts.radius * this.ctx.settings.sphereScale });
+    t.spawnTime = this.ctx.stats.time;
+    this.targets.push(t);
+    return t;
+  }
+
   removeTarget(t) {
     t.dispose();
     this.targets = this.targets.filter((x) => x !== t);
@@ -74,17 +92,17 @@ class Scenario {
   }
 }
 
-// Un objetivo inmortal que hace strafe delante. Mide tiempo en objetivo.
+// Un objetivo inmortal en movimiento. Mide tiempo en objetivo.
+// `makeTarget(scenario)` crea y coloca el objetivo.
 class TrackingScenario extends Scenario {
-  constructor(ctx) {
+  constructor(ctx, makeTarget) {
     super(ctx);
+    this.makeTarget = makeTarget;
     this.spawn();
   }
 
   spawn() {
-    const { player, settings } = this.ctx;
-    const t = this.newTarget({ hp: Infinity, lane: Math.max(2, settings.targetDistance * 0.2) });
-    t.place(spawnPoint(player, settings.targetDistance, 0), player.pos);
+    this.makeTarget(this);
   }
 
   live(st) {
@@ -213,25 +231,171 @@ class FlickScenario extends Scenario {
   }
 }
 
+// Base de los escenarios de esferas de un impacto: al romper una aparece otra.
+class SphereFlickScenario extends Scenario {
+  constructor(ctx) {
+    super(ctx);
+    this.lastKill = 0;
+    this.lastKilled = null;
+  }
+
+  onHit(target, part, res) {
+    if (!res.killed) return;
+    const st = this.ctx.stats;
+    st.kills++;
+    st.killTimes.push(st.time - this.lastKill);
+    this.lastKill = st.time;
+    this.lastKilled = target;
+    this.removeTarget(target);
+    this.spawn();
+  }
+
+  live(st) {
+    return `Kills ${st.kills} · ${ms(avg(st.killTimes))} · Precisión ${pct(st.hits, st.shots)}`;
+  }
+
+  score(st) {
+    return st.kills;
+  }
+
+  formatScore(x) {
+    return `${x} kills`;
+  }
+
+  summary(st) {
+    return [
+      ['Kills', st.kills],
+      ['Tiempo entre kills', ms(avg(st.killTimes))],
+      ['Precisión', pct(st.hits, st.shots)],
+    ];
+  }
+}
+
+// Tres esferas a la vez en una cuadrícula plana delante del jugador.
+class GridshotScenario extends SphereFlickScenario {
+  constructor(ctx, { count = 3, cols = 5, rows = 4, dist = 12, spacing = 1.4 } = {}) {
+    super(ctx);
+    // Cuadrícula centrada 1 m por encima de los ojos para que la fila baja no toque el suelo
+    const { pos } = ctx.player;
+    this.cells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        this.cells.push(new THREE.Vector3(pos.x + (c - (cols - 1) / 2) * spacing, pos.y + 1 + (r - (rows - 1) / 2) * spacing, pos.z - dist));
+      }
+    }
+    for (let i = 0; i < count; i++) this.spawn();
+  }
+
+  spawn() {
+    // Nunca en una casilla ocupada ni en la que se acaba de romper
+    const used = new Set(this.targets.map((t) => t.cell));
+    if (this.lastKilled) used.add(this.lastKilled.cell);
+    const free = this.cells.map((_, i) => i).filter((i) => !used.has(i));
+    const t = this.newSphere({ radius: 0.35 });
+    t.cell = free[Math.floor(Math.random() * free.length)];
+    t.place(this.cells[t.cell]);
+  }
+}
+
+// Una esfera pequeña que reaparece a pocos grados de la anterior: microajustes.
+class PrecisionScenario extends SphereFlickScenario {
+  constructor(ctx) {
+    super(ctx);
+    this.yaw = 0;
+    this.pitch = 3;
+    this.spawn();
+  }
+
+  spawn() {
+    // Salto de 2-8° en una dirección que no se salga del área (±25° yaw, -4..14° pitch)
+    for (let tries = 0; tries < 50; tries++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = rand(2, 8);
+      const yaw = this.yaw + Math.cos(a) * d;
+      const pitch = this.pitch + Math.sin(a) * d;
+      if (Math.abs(yaw) <= 25 && pitch >= -4 && pitch <= 14) {
+        this.yaw = yaw;
+        this.pitch = pitch;
+        break;
+      }
+    }
+    const t = this.newSphere({ radius: 0.13 });
+    t.place(aimPoint(this.ctx.player, 15, this.yaw, this.pitch));
+  }
+}
+
 export const SCENARIOS = {
   tracking: {
+    group: 'Humanoides',
     name: 'Tracking',
     desc: 'Un objetivo inmortal hace strafe, salta y dashea. Mantén el ADS encima.',
-    create: (ctx) => new TrackingScenario(ctx),
+    create: (ctx) => new TrackingScenario(ctx, (sc) => {
+      const { player, settings } = ctx;
+      const t = sc.newTarget({ hp: Infinity, lane: Math.max(2, settings.targetDistance * 0.2) });
+      t.place(spawnPoint(player, settings.targetDistance, 0), player.pos);
+    }),
+  },
+  closetrack: {
+    group: 'Humanoides',
+    name: 'Tracking cercano',
+    desc: 'A 7 m, como un fight cuerpo a cuerpo: cambia de dirección sin parar, se acerca y se aleja, salta y dashea.',
+    create: (ctx) => new TrackingScenario(ctx, (sc) => {
+      const t = sc.newTarget({
+        hp: Infinity,
+        lane: 3.5,
+        ai: { changeMin: 0.12, changeMax: 0.5, flipChance: 0.8, jumpChance: 0.3, dashChance: 0.2, depth: 2.5 },
+      });
+      t.place(spawnPoint(ctx.player, 7, 0), ctx.player.pos);
+    }),
   },
   duel: {
+    group: 'Humanoides',
     name: 'Duelo',
     desc: 'Un enemigo con la vida de su clase. Flick + ADS + tracking hasta matarlo.',
     create: (ctx) => new EliminationScenario(ctx, { count: 1, arc: 40, respawnDelay: 0.4 }),
   },
   switching: {
+    group: 'Humanoides',
     name: 'Cambio de objetivo',
     desc: 'Tres enemigos a la vez, como un fight de equipo. Mata y cambia rápido.',
     create: (ctx) => new EliminationScenario(ctx, { count: 3, arc: 45, respawnDelay: 0.6 }),
   },
   flick: {
+    group: 'Humanoides',
     name: 'Flick ADS',
     desc: 'Objetivos estáticos de un impacto en un arco de 120°. Entra en ADS y dispara.',
     create: (ctx) => new FlickScenario(ctx),
+  },
+  gridshot: {
+    group: 'Esferas',
+    spheres: true,
+    name: 'Gridshot',
+    desc: 'Tres esferas a la vez en una cuadrícula. Al romper una aparece otra. Velocidad y ritmo.',
+    create: (ctx) => new GridshotScenario(ctx),
+  },
+  precision: {
+    group: 'Esferas',
+    spheres: true,
+    name: 'Precisión',
+    desc: 'Una esfera pequeña que reaparece a pocos grados de la anterior. Microajustes en ADS.',
+    create: (ctx) => new PrecisionScenario(ctx),
+  },
+  airtrack: {
+    group: 'Esferas',
+    spheres: true,
+    name: 'Tracking 3D',
+    desc: 'Una esfera flotante con trayectorias suaves en las tres dimensiones, también en vertical.',
+    create: (ctx) => new TrackingScenario(ctx, (sc) => {
+      const { player, settings } = ctx;
+      const center = new THREE.Vector3(player.pos.x, player.pos.y + 1.5, player.pos.z - 12);
+      const t = sc.newSphere({
+        radius: 0.35,
+        hp: Infinity,
+        move: 'float',
+        speed: 6 * settings.targetSpeed,
+        bounds: { center, half: new THREE.Vector3(6, 2.2, 3) },
+      });
+      t.place(center);
+    }),
   },
 };

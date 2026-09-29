@@ -133,7 +133,9 @@ function finishSession() {
   state = 'results';
   const { def, scenario, stats, ctx, key } = session;
   const score = scenario.score(stats);
-  const bestKey = `${key}|${settings.weapon}|${settings.targetClass}|${settings.targetDistance}`;
+  const bestKey = def.spheres
+    ? `${key}|${settings.weapon}|${settings.sphereScale}`
+    : `${key}|${settings.weapon}|${settings.targetClass}|${settings.targetDistance}`;
   const bests = loadBests();
   const prev = bests[bestKey];
   const isRecord = prev === undefined || score > prev;
