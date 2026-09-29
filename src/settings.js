@@ -1,7 +1,9 @@
 import { WEAPONS } from './weapons.js';
 
 export const DEG = Math.PI / 180;
-const STORAGE_KEY = 'finals-aim.settings.v1';
+// v2: modo de sens de The Finals y sens de ADS en %. Los ajustes v1 se descartan.
+const STORAGE_KEY = 'finals-aim.settings.v2';
+const OLD_STORAGE_KEYS = ['finals-aim.settings.v1'];
 
 // Grados por count a sens 1 en The Finals (sens 47 @ 400 DPI = 48,638 cm/360).
 export const FINALS_YAW = 0.001;
@@ -108,6 +110,7 @@ export const SETTINGS_SCHEMA = [
 export function loadSettings() {
   const s = { ...DEFAULTS };
   try {
+    OLD_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
     for (const k of Object.keys(DEFAULTS)) {
       if (typeof stored[k] === typeof DEFAULTS[k]) s[k] = stored[k];
