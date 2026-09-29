@@ -1,6 +1,9 @@
 import { SETTINGS_SCHEMA, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { SIGHTS } from './weapons.js';
 import { SCENARIOS } from './scenarios.js';
+import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
+
+const FIELD_LABELS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f.label]));
 
 // Crea elementos sin innerHTML (compatible con la CSP y sin riesgo de inyección).
 function h(tag, props = {}, ...children) {
@@ -60,12 +63,86 @@ export class Menu {
     );
 
     const right = h('section', { class: 'panel right' },
+      this.buildImport(),
       SETTINGS_SCHEMA.map((group) => h('fieldset', {},
         h('legend', {}, group.section),
         group.fields.map((f) => this.buildField(f)))));
 
     this.root.replaceChildren(h('div', { class: 'menu-grid' }, left, right));
     this.refresh();
+  }
+
+  buildImport() {
+    const file = h('input', { type: 'file', accept: '.sav', class: 'hidden' });
+    file.addEventListener('change', () => {
+      this.importSave(file.files[0]);
+      file.value = '';
+    });
+    this.importStatus = h('p', { class: 'import-status' });
+    const copyBtn = h('button', {
+      onclick: async () => {
+        try {
+          await navigator.clipboard.writeText(SAVE_PATH);
+          this.setImportStatus('Ruta copiada. Pégala en la barra de direcciones del diálogo de archivo.');
+        } catch {
+          this.setImportStatus(`Copia la ruta a mano: ${SAVE_PATH}`);
+        }
+      },
+    }, 'Copiar ruta');
+
+    const box = h('fieldset', { class: 'wide import' },
+      h('legend', {}, 'Importar de The Finals'),
+      h('p', {}, 'Carga tu ', h('code', {}, 'EmbarkOptionSaveGame.sav'), ' (o arrástralo aquí) para copiar sens, FOV, sens de ADS, escalado focal y color de mira. ',
+        'Se lee en tu navegador y no se sube a ningún sitio. Los DPI hay que ponerlos a mano.'),
+      h('p', { class: 'path' }, h('code', {}, `${SAVE_PATH}\\EmbarkOptionSaveGame.sav`)),
+      h('div', { class: 'actions' }, h('button', { class: 'primary', onclick: () => file.click() }, 'Cargar .sav…'), copyBtn),
+      this.importStatus,
+      file,
+    );
+    box.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      box.classList.add('dragging');
+    });
+    box.addEventListener('dragleave', () => box.classList.remove('dragging'));
+    box.addEventListener('drop', (e) => {
+      e.preventDefault();
+      box.classList.remove('dragging');
+      this.importSave(e.dataTransfer.files[0]);
+    });
+    return box;
+  }
+
+  async importSave(file) {
+    if (!file) return;
+    try {
+      const { values, skipped } = settingsFromFinalsSave(parseFinalsSave(await file.arrayBuffer()));
+      const keys = Object.keys(values);
+      if (!keys.length) throw new Error('El archivo no contiene ajustes de ratón ni de FOV.');
+      Object.assign(this.settings, values);
+      keys.forEach((k) => this.handlers.onChange(k));
+      this.syncInputs();
+      this.refresh();
+      const shown = keys.filter((k) => FIELD_LABELS.has(k) && k !== 'sensMode' && k !== 'fovType');
+      const fmt = (v) => (v === true ? 'ON' : v === false ? 'OFF' : String(v));
+      let text = `Importado: ${shown.map((k) => `${FIELD_LABELS.get(k)} ${fmt(values[k])}`).join(' · ')}.`;
+      if (skipped.length) text += ` Ignorado por valor no válido: ${skipped.join(', ')}.`;
+      this.setImportStatus(text);
+    } catch (err) {
+      this.setImportStatus(`No se ha podido importar: ${err.message}`, true);
+    }
+  }
+
+  setImportStatus(text, error = false) {
+    this.importStatus.textContent = text;
+    this.importStatus.classList.toggle('error', error);
+  }
+
+  /** Vuelca los valores actuales de settings en los controles del formulario. */
+  syncInputs() {
+    for (const { f, input } of this.fieldRows) {
+      if (f.type === 'checkbox') input.checked = this.settings[f.key];
+      else input.value = String(this.settings[f.key]);
+    }
   }
 
   buildField(f) {
@@ -91,7 +168,7 @@ export class Menu {
       });
     }
     const row = h('label', { class: 'field', title: f.hint ?? '' }, h('span', {}, f.label), input);
-    this.fieldRows.push({ f, row });
+    this.fieldRows.push({ f, row, input });
     return row;
   }
 

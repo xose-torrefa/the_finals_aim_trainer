@@ -219,3 +219,18 @@ legend { padding: 0 6px; color: var(--muted); font-size: 12px; text-transform: u
 }
 .field input[type='checkbox'] { accent-color: var(--accent); width: 18px; height: 18px; }
 .field input[type='color'] { width: 60px; height: 28px; border: none; background: none; padding: 0; }
+
+fieldset.wide { grid-column: 1 / -1; }
+.import p { margin: 4px 0; color: var(--muted); }
+.import .actions { margin-top: 8px; }
+.import.dragging { border-color: var(--accent); background: rgba(255, 46, 99, 0.08); }
+.import-status { color: var(--accent-2) !important; min-height: 1em; }
+.import-status.error { color: var(--accent) !important; }
+code {
+  font: 12px/1.4 ui-monospace, Consolas, monospace;
+  color: var(--text);
+  background: #11141b;
+  padding: 1px 5px;
+  border-radius: 4px;
+  word-break: break-all;
+}

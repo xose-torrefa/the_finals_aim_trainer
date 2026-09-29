@@ -24,6 +24,10 @@ Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
 - Sens de ADS y de francotirador en %, como en el juego (78% por defecto), y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance). El menú muestra qué % daría 0% monitor distance con la mira elegida.
 - Los valores de las armas (`src/weapons.js`) y hitboxes (`src/target.js`) son aproximados, para ir ajustándolos.
 
+## Importar la configuración del juego
+
+El menú puede cargar `%LOCALAPPDATA%\Discovery\Saved\SaveGames\EmbarkOptionSaveGame.sav` (botón o arrastrar y soltar). Importa sens, FOV, sens de ADS (`MouseZoomSensitivity`), sens de francotirador (`MouseScopedZoomSensitivity`), escalado focal y color de mira. El archivo se lee en el navegador (`src/finals-save.js`), no se modifica ni se envía a ningún sitio. Los DPI hay que ponerlos a mano.
+
 ## Seguridad (supply chain)
 
 - Una sola dependencia, `three`, que no tiene dependencias propias. Sin bundler.
