@@ -1,0 +1,17 @@
+{
+  "name": "finals-aim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aim trainer en three.js enfocado al ADS de The Finals",
+  "scripts": {
+    "start": "node server.mjs",
+    "verify": "npm audit signatures && npm ls --all"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "0.186.0"
+  }
+}

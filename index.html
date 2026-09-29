@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Finals Aim</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/src/main.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="crosshair">
+      <div class="ch-line ch-top"></div>
+      <div class="ch-line ch-bottom"></div>
+      <div class="ch-line ch-left"></div>
+      <div class="ch-line ch-right"></div>
+      <div class="ch-dot"></div>
+    </div>
+    <div id="hitmarker">
+      <div class="hm hm-a"></div>
+      <div class="hm hm-b"></div>
+      <div class="hm hm-c"></div>
+      <div class="hm hm-d"></div>
+    </div>
+    <div id="topbar">
+      <div id="timer">60.0</div>
+      <div id="live"></div>
+    </div>
+    <div id="fps"></div>
+  </div>
+
+  <div id="menu"></div>
+</body>
+</html>
