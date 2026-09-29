@@ -21,7 +21,7 @@ export const DEFAULTS = {
 
   // FOV / ADS
   fov: 96,
-  fovType: 'h16:9',
+  fovType: 'v', // The Finals usa FOV vertical (verificado midiendo en el juego)
   adsMode: 'hold',
   adsZoomOverride: 0,
   adsTimeOverride: 0,
@@ -67,7 +67,7 @@ export const SETTINGS_SCHEMA = [
     section: 'FOV / ADS',
     fields: [
       { key: 'fov', label: 'FOV', type: 'number', min: 30, max: 150, step: 1 },
-      { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)'], ['v', 'Vertical']] },
+      { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['v', 'Vertical (The Finals)'], ['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)']] },
       { key: 'adsMode', label: 'ADS', type: 'select', options: [['hold', 'Mantener'], ['toggle', 'Alternar']] },
       { key: 'adsZoomOverride', label: 'Zoom ADS (0 = arma)', type: 'number', min: 0, max: 12, step: 0.05 },
       { key: 'adsTimeOverride', label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
