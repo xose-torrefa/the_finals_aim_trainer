@@ -44,19 +44,23 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
 
+**Modos Escenarios / Sandbox**
+- `settings.mode` elige el modo. En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
+- Los campos del esquema marcados `sandbox: true` solo se muestran y se aplican en Sandbox. Lo personal (sens, FOV, ADS, color…) es libre en ambos modos.
+- `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
+
 **`settings.js`: ajustes**
 - `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente el formulario del menú (`showIf`, `min`/`max`, `hint`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
 - `loadSettings()` solo acepta valores guardados del mismo tipo que el default.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
 **`scenarios.js`: escenarios**
-- Registro `SCENARIOS`: `{ group, name, desc, spheres?, create(ctx) }`. El menú los agrupa por `group`.
-- Los escenarios con `spheres` guardan el récord por `sphereScale` en lugar de por clase y distancia.
+- Registro `SCENARIOS`: `{ group, name, desc, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group`.
 - Una instancia de escenario implementa:
   - `targets` y `hitMeshes`.
   - `update(dt)`.
   - `onHit(target, part, { dealt, killed })`.
-  - `live(stats)`, `score(stats)`, `formatScore(x)`, `summary(stats)`.
+  - `live(stats)`, `score(stats)`, `summary(stats)`.
   - `dispose()`.
 - Clases base:
   - `TrackingScenario` recibe un `makeTarget(scenario)`.

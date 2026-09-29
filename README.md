@@ -9,6 +9,13 @@ npm start   # http://localhost:5173
 
 Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
 
+## Modos
+
+- **Escenarios**: cada escenario tiene una configuración fija (arma, objetivos, distancia, velocidad, sin moverse, 60 s) para que las puntuaciones sean comparables. Cada partida se guarda en un historial (localStorage) con tu cm/360 y FOV del momento, y el menú muestra récord, media, gráfica y últimas partidas.
+- **Sandbox**: todo configurable; las partidas no se guardan.
+
+Sens, FOV, ADS, escalado focal, color de mira y volumen son siempre los tuyos, en ambos modos.
+
 ## Escenarios
 
 - **Tracking**: objetivo inmortal que hace strafe, salta y (Light) dashea. Métrica: % de tiempo con la mira encima.

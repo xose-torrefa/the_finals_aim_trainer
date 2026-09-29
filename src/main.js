@@ -1,5 +1,5 @@
 import * as THREE from '/lib/three/three.module.js';
-import { DEG, loadSettings, saveSettings, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor } from './settings.js';
+import { DEG, loadSettings, saveSettings, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { WEAPONS, SIGHTS, damageAt } from './weapons.js';
 import { Input } from './input.js';
 import { buildWorld } from './world.js';
@@ -7,14 +7,17 @@ import { Hud } from './hud.js';
 import { Menu } from './menu.js';
 import { Sfx } from './audio.js';
 import { Impacts } from './impacts.js';
-import { SCENARIOS, createStats } from './scenarios.js';
+import { SCENARIOS, createStats, scenarioSettings } from './scenarios.js';
+import { addEntry } from './history.js';
 
 const EYE_HEIGHT = 1.7;
 const ARENA_RADIUS = 12;
 const ADS_MOVE_MULT = 0.6;
-const BEST_KEY = 'finals-aim.best.v1';
 
 const settings = loadSettings();
+try {
+  localStorage.removeItem('finals-aim.best.v1'); // récords antiguos, sin configuración fija
+} catch { /* ignorar */ }
 
 // ---- Render ----
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -51,19 +54,24 @@ const menu = new Menu(document.getElementById('menu'), settings, {
   onStart: startSession,
   onResume: requestLock,
   onChange: onSettingChange,
-  getWeapon: currentWeapon,
+  getWeapon: () => currentWeapon(sessionSettings()),
 });
 resize();
 
-function currentWeapon() {
-  const base = WEAPONS[settings.weapon];
-  const sight = settings.sight === 'weapon' ? base.sight : settings.sight;
+/** Ajustes efectivos: en modo Escenarios se imponen los fijos del escenario. */
+function sessionSettings(key = settings.scenario, ranked = settings.mode === 'scenarios') {
+  return scenarioSettings(settings, key, ranked);
+}
+
+function currentWeapon(s) {
+  const base = WEAPONS[s.weapon];
+  const sight = s.sight === 'weapon' ? base.sight : s.sight;
   return {
     ...base,
     sight,
     fovMult: SIGHTS[sight].fovMult,
     sniper: SIGHTS[sight].sniper === true,
-    adsTime: settings.adsTimeOverride > 0 ? settings.adsTimeOverride / 1000 : base.adsTime,
+    adsTime: s.adsTimeOverride > 0 ? s.adsTimeOverride / 1000 : base.adsTime,
   };
 }
 
@@ -72,7 +80,11 @@ function onSettingChange(key) {
   if (key === 'renderScale' || key.startsWith('fov')) resize();
   if (key === 'useRawUpdate') input.bindMoveEvent();
   if (key === 'adsMode') input.ads = false;
-  if (session) session.ctx.weapon = currentWeapon();
+  if (session) {
+    // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
+    session.ctx.settings = sessionSettings(session.key, session.ranked);
+    session.ctx.weapon = currentWeapon(session.ctx.settings);
+  }
   hud.applySettings();
 }
 
@@ -86,15 +98,17 @@ function startSession() {
   syncCamera();
 
   const stats = createStats();
-  const weapon = currentWeapon();
-  const ctx = { scene, camera, player, settings, weapon, stats };
+  const ranked = settings.mode === 'scenarios';
+  const s = sessionSettings(settings.scenario, ranked);
+  const ctx = { scene, camera, player, settings: s, weapon: currentWeapon(s), stats };
   session = {
     key: settings.scenario,
     def: SCENARIOS[settings.scenario],
+    ranked,
     scenario: null,
     ctx,
     stats,
-    timeLeft: settings.duration,
+    timeLeft: s.duration,
   };
   session.scenario = session.def.create(ctx);
   adsT = 0;
@@ -135,37 +149,37 @@ input.onLockChange = (locked) => {
 function finishSession() {
   state = 'results';
   const { def, scenario, stats, ctx, key } = session;
-  const score = scenario.score(stats);
-  const bestKey = def.spheres
-    ? `${key}|${settings.weapon}|${settings.sphereScale}`
-    : `${key}|${settings.weapon}|${settings.targetClass}|${settings.targetDistance}`;
-  const bests = loadBests();
-  const prev = bests[bestKey];
-  const isRecord = prev === undefined || score > prev;
-  if (isRecord) {
-    bests[bestKey] = score;
-    saveBests(bests);
-  }
   const title = `${def.name} — ${ctx.weapon.name}`;
-  menu.showResults(title, scenario.summary(stats), scenario.formatScore(isRecord ? score : prev), isRecord && prev !== undefined);
+  if (session.ranked) {
+    const score = scenario.score(stats);
+    const s = ctx.settings;
+    const w = ctx.weapon;
+    const hipV = hipVFovDeg(s, camera.aspect);
+    const hipDpc = hipDegPerCount(s);
+    const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
+    const list = addEntry(key, def, {
+      t: Date.now(),
+      score,
+      accuracy: stats.shots > 0 ? (100 * stats.hits) / stats.shots : null,
+      cm360: cm360FromDegPerCount(hipDpc, s.dpi),
+      adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
+      fov: s.fov,
+    });
+    const previous = list.slice(0, -1).map((e) => e.score);
+    const best = previous.length ? Math.max(...previous) : null;
+    menu.showResults(title, scenario.summary(stats), {
+      score: def.formatScore(score),
+      best: best === null ? null : def.formatScore(best),
+      isRecord: best !== null && score > best,
+      count: list.length,
+    });
+  } else {
+    menu.showResults(title, scenario.summary(stats), null);
+  }
   input.unlock();
   hud.hide();
   menu.show();
   endScenario();
-}
-
-function loadBests() {
-  try {
-    return JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}');
-  } catch {
-    return {};
-  }
-}
-
-function saveBests(b) {
-  try {
-    localStorage.setItem(BEST_KEY, JSON.stringify(b));
-  } catch { /* ignorar */ }
 }
 
 // ---- Juego ----
@@ -222,7 +236,8 @@ function update(dt) {
   const rate = w.adsTime > 0 ? dt / w.adsTime : 1;
   adsT = input.ads ? Math.min(1, adsT + rate) : Math.max(0, adsT - rate);
   const e = smoothstep(adsT);
-  const hipV = hipVFovDeg(settings, camera.aspect);
+  const s = session.ctx.settings;
+  const hipV = hipVFovDeg(s, camera.aspect);
   const curV = hipV + (adsVFovDeg(hipV, w.fovMult) - hipV) * e;
   if (camera.fov !== curV) {
     camera.fov = curV;
@@ -231,12 +246,12 @@ function update(dt) {
 
   // Ratón
   const [dx, dy] = input.consumeMouse();
-  const radPerCount = hipDegPerCount(settings) * sensFactor(settings, e, curV, hipV, w.sniper) * DEG;
+  const radPerCount = hipDegPerCount(s) * sensFactor(s, e, curV, hipV, w.sniper) * DEG;
   player.yaw -= dx * radPerCount;
   player.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, player.pitch - dy * radPerCount));
 
   // Movimiento
-  if (settings.allowMove) {
+  if (s.allowMove) {
     const k = input.keys;
     const fwd = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
     const str = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
@@ -244,7 +259,7 @@ function update(dt) {
       forward.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
       right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
       const move = forward.multiplyScalar(fwd).addScaledVector(right, str).normalize();
-      const speed = settings.moveSpeed * (1 + (ADS_MOVE_MULT - 1) * e);
+      const speed = s.moveSpeed * (1 + (ADS_MOVE_MULT - 1) * e);
       player.pos.addScaledVector(move, speed * dt);
       const flat = Math.hypot(player.pos.x, player.pos.z);
       if (flat > ARENA_RADIUS) {

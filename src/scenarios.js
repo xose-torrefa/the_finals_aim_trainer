@@ -1,6 +1,6 @@
 import * as THREE from '/lib/three/three.module.js';
 import { Target, SphereTarget, pickClass, CLASSES } from './target.js';
-import { idealTTK } from './weapons.js';
+import { idealTTK, WEAPONS, SIGHTS } from './weapons.js';
 import { DEG } from './settings.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -113,9 +113,6 @@ class TrackingScenario extends Scenario {
     return st.time > 0 ? (100 * st.onTargetTime) / st.time : 0;
   }
 
-  formatScore(x) {
-    return `${x.toFixed(1)}%`;
-  }
 
   summary(st) {
     return [
@@ -169,9 +166,6 @@ class EliminationScenario extends Scenario {
     return st.kills;
   }
 
-  formatScore(x) {
-    return `${x} kills`;
-  }
 
   summary(st) {
     return [
@@ -217,9 +211,6 @@ class FlickScenario extends Scenario {
     return st.kills;
   }
 
-  formatScore(x) {
-    return `${x} kills`;
-  }
 
   summary(st) {
     return [
@@ -258,9 +249,6 @@ class SphereFlickScenario extends Scenario {
     return st.kills;
   }
 
-  formatScore(x) {
-    return `${x} kills`;
-  }
 
   summary(st) {
     return [
@@ -324,11 +312,52 @@ class PrecisionScenario extends SphereFlickScenario {
   }
 }
 
+const percent = (x) => `${x.toFixed(1)}%`;
+const percentTick = (v) => `${v}%`;
+const kills = (x) => `${Number.isInteger(x) ? x : x.toFixed(1)} kills`;
+const killsTick = (v) => String(v);
+
+// Configuración fija del modo Escenarios (con registro). Cada escenario la
+// completa con su `fixed`. Si cambias la configuración efectiva de un escenario,
+// sube su `version`: el historial se separa por versión.
+export const RANKED_BASE = {
+  sight: 'weapon',
+  adsTimeOverride: 0,
+  targetClass: 'medium',
+  targetDistance: 20,
+  targetSpeed: 1,
+  targetJumps: true,
+  sphereScale: 1,
+  allowMove: false,
+  moveSpeed: 5,
+  duration: 60,
+};
+
+/** Ajustes efectivos de una partida: en modo Escenarios se imponen los fijos. */
+export function scenarioSettings(settings, key, ranked) {
+  return ranked ? { ...settings, ...RANKED_BASE, ...SCENARIOS[key].fixed } : settings;
+}
+
+/** Resumen legible de la configuración fija de un escenario. */
+export function describeFixed(key) {
+  const def = SCENARIOS[key];
+  const s = { ...RANKED_BASE, ...def.fixed };
+  const parts = [WEAPONS[s.weapon].name.split(' (')[0]];
+  if (s.sight !== 'weapon') parts.push(`mira ${SIGHTS[s.sight].name.split(' (')[0]}`);
+  if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
+  parts.push(`${s.duration} s`);
+  return parts.join(' · ');
+}
+
 export const SCENARIOS = {
   tracking: {
     group: 'Humanoides',
     name: 'Tracking',
     desc: 'Un objetivo inmortal hace strafe, salta y dashea. Mantén el ADS encima.',
+    version: 1,
+    fixed: { weapon: 'ar' },
+    formatScore: percent,
+    formatTick: percentTick,
     create: (ctx) => new TrackingScenario(ctx, (sc) => {
       const { player, settings } = ctx;
       const t = sc.newTarget({ hp: Infinity, lane: Math.max(2, settings.targetDistance * 0.2) });
@@ -338,6 +367,11 @@ export const SCENARIOS = {
   closetrack: {
     group: 'Humanoides',
     name: 'Tracking cercano',
+    version: 1,
+    fixed: { weapon: 'smg', targetClass: 'light' },
+    distanceLabel: '7 m',
+    formatScore: percent,
+    formatTick: percentTick,
     desc: 'A 7 m, como un fight cuerpo a cuerpo: cambia de dirección sin parar, se acerca y se aleja, salta y dashea.',
     create: (ctx) => new TrackingScenario(ctx, (sc) => {
       const t = sc.newTarget({
@@ -351,18 +385,30 @@ export const SCENARIOS = {
   duel: {
     group: 'Humanoides',
     name: 'Duelo',
+    version: 1,
+    fixed: { weapon: 'ar' },
+    formatScore: kills,
+    formatTick: killsTick,
     desc: 'Un enemigo con la vida de su clase. Flick + ADS + tracking hasta matarlo.',
     create: (ctx) => new EliminationScenario(ctx, { count: 1, arc: 40, respawnDelay: 0.4 }),
   },
   switching: {
     group: 'Humanoides',
     name: 'Cambio de objetivo',
+    version: 1,
+    fixed: { weapon: 'ar' },
+    formatScore: kills,
+    formatTick: killsTick,
     desc: 'Tres enemigos a la vez, como un fight de equipo. Mata y cambia rápido.',
     create: (ctx) => new EliminationScenario(ctx, { count: 3, arc: 45, respawnDelay: 0.6 }),
   },
   flick: {
     group: 'Humanoides',
     name: 'Flick ADS',
+    version: 1,
+    fixed: { weapon: 'revolver' },
+    formatScore: kills,
+    formatTick: killsTick,
     desc: 'Objetivos estáticos de un impacto en un arco de 120°. Entra en ADS y dispara.',
     create: (ctx) => new FlickScenario(ctx),
   },
@@ -370,6 +416,10 @@ export const SCENARIOS = {
     group: 'Esferas',
     spheres: true,
     name: 'Gridshot',
+    version: 1,
+    fixed: { weapon: 'dmr', sight: 'low' },
+    formatScore: kills,
+    formatTick: killsTick,
     desc: 'Tres esferas a la vez en una cuadrícula. Al romper una aparece otra. Velocidad y ritmo.',
     create: (ctx) => new GridshotScenario(ctx),
   },
@@ -377,6 +427,10 @@ export const SCENARIOS = {
     group: 'Esferas',
     spheres: true,
     name: 'Precisión',
+    version: 1,
+    fixed: { weapon: 'dmr', sight: 'low' },
+    formatScore: kills,
+    formatTick: killsTick,
     desc: 'Una esfera pequeña que reaparece a pocos grados de la anterior. Microajustes en ADS.',
     create: (ctx) => new PrecisionScenario(ctx),
   },
@@ -384,6 +438,10 @@ export const SCENARIOS = {
     group: 'Esferas',
     spheres: true,
     name: 'Tracking 3D',
+    version: 1,
+    fixed: { weapon: 'ar' },
+    formatScore: percent,
+    formatTick: percentTick,
     desc: 'Una esfera flotante con trayectorias suaves en las tres dimensiones, también en vertical.',
     create: (ctx) => new TrackingScenario(ctx, (sc) => {
       const { player, settings } = ctx;

@@ -236,3 +236,50 @@ code {
   border-radius: 4px;
   word-break: break-all;
 }
+
+/* ---------- Modo y progreso ---------- */
+.tabs { display: flex; gap: 4px; margin: 12px 0 4px; padding: 4px; background: #11141b; border-radius: 8px; }
+.tabs button { flex: 1; padding: 8px; background: transparent; border: none; color: var(--muted); }
+.tabs button.active { background: #2a2f3d; color: var(--text); }
+.mode-note { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.scenario .fixed { color: var(--text); font-size: 12px; margin-top: 4px; opacity: 0.8; }
+
+.progress { margin-top: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.tile { background: #11141b; border-radius: 8px; padding: 8px 10px; }
+.tile span { display: block; color: var(--muted); font-size: 12px; }
+.tile strong { font-size: 18px; font-weight: 600; }
+.empty { color: var(--muted); font-size: 13px; }
+
+.chart { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .grid { stroke: var(--border); stroke-width: 1; }
+.chart .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .label { fill: var(--text); font-size: 11px; font-weight: 600; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .area { fill: var(--accent); opacity: 0.1; }
+.chart .dot { fill: var(--accent); stroke: #181b24; stroke-width: 2; }
+.chart .dot.best { fill: var(--accent-2); }
+.chart .dot.hover { fill: var(--text); }
+.chart .cross { stroke: var(--muted); stroke-width: 1; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart-tip {
+  position: absolute;
+  top: -8px;
+  transform: translateY(-100%);
+  pointer-events: none;
+  background: #0c0e14;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  display: grid;
+  gap: 2px;
+}
+.chart-tip span { color: var(--muted); }
+
+table.recent { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+table.recent th { text-align: left; color: var(--muted); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+table.recent td { padding: 4px 6px; border-bottom: 1px solid #232838; font-variant-numeric: tabular-nums; }
+table.recent td.num, table.recent th.num { text-align: right; }

@@ -27,7 +27,8 @@ export const DEFAULTS = {
   sight: 'weapon',
   adsTimeOverride: 0,
 
-  // Sesión
+  // Sesión. mode: 'scenarios' (configuración fija, con registro) | 'sandbox'
+  mode: 'scenarios',
   scenario: 'tracking',
   weapon: 'ar',
   duration: 60,
@@ -50,7 +51,8 @@ export const DEFAULTS = {
   volume: 0.4,
 };
 
-// Esquema que usa el menú para generar el formulario.
+// Esquema que usa el menú para generar el formulario. Los campos `sandbox`
+// solo se muestran (y aplican) en modo Sandbox; en Escenarios son fijos.
 export const SETTINGS_SCHEMA = [
   {
     section: 'Sensibilidad',
@@ -72,37 +74,37 @@ export const SETTINGS_SCHEMA = [
       { key: 'fov', label: 'FOV', type: 'number', min: 30, max: 150, step: 1 },
       { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['v', 'Vertical (The Finals)'], ['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)']] },
       { key: 'adsMode', label: 'ADS', type: 'select', options: [['hold', 'Mantener'], ['toggle', 'Alternar']] },
-      { key: 'sight', label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
-      { key: 'adsTimeOverride', label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
+      { key: 'sight', sandbox: true, label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
+      { key: 'adsTimeOverride', sandbox: true, label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },
   {
     section: 'Arma',
     fields: [
-      { key: 'weapon', label: 'Arma', type: 'select', options: Object.entries(WEAPONS).map(([k, w]) => [k, w.name]) },
+      { key: 'weapon', sandbox: true, label: 'Arma', type: 'select', options: Object.entries(WEAPONS).map(([k, w]) => [k, w.name]) },
     ],
   },
   {
     section: 'Objetivos',
     fields: [
-      { key: 'targetClass', label: 'Clase', type: 'select', options: [['light', 'Light (150 HP)'], ['medium', 'Medium (250 HP)'], ['heavy', 'Heavy (350 HP)'], ['random', 'Aleatoria']] },
-      { key: 'targetDistance', label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
-      { key: 'targetSpeed', label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
-      { key: 'targetJumps', label: 'Saltos / dashes', type: 'checkbox' },
-      { key: 'sphereScale', label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
+      { key: 'targetClass', sandbox: true, label: 'Clase', type: 'select', options: [['light', 'Light (150 HP)'], ['medium', 'Medium (250 HP)'], ['heavy', 'Heavy (350 HP)'], ['random', 'Aleatoria']] },
+      { key: 'targetDistance', sandbox: true, label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
+      { key: 'targetSpeed', sandbox: true, label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
+      { key: 'targetJumps', sandbox: true, label: 'Saltos / dashes', type: 'checkbox' },
+      { key: 'sphereScale', sandbox: true, label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
     ],
   },
   {
     section: 'Jugador',
     fields: [
-      { key: 'allowMove', label: 'Moverse (WASD)', type: 'checkbox' },
-      { key: 'moveSpeed', label: 'Velocidad (m/s)', type: 'number', min: 0, max: 15, step: 0.1 },
+      { key: 'allowMove', sandbox: true, label: 'Moverse (WASD)', type: 'checkbox' },
+      { key: 'moveSpeed', sandbox: true, label: 'Velocidad (m/s)', type: 'number', min: 0, max: 15, step: 0.1 },
     ],
   },
   {
     section: 'Sesión y visual',
     fields: [
-      { key: 'duration', label: 'Duración (s)', type: 'number', min: 10, max: 600, step: 5 },
+      { key: 'duration', sandbox: true, label: 'Duración (s)', type: 'number', min: 10, max: 600, step: 5 },
       { key: 'crosshairColor', label: 'Color mira', type: 'color' },
       { key: 'renderScale', label: 'Escala render', type: 'number', min: 0.25, max: 2, step: 0.05 },
       { key: 'showFps', label: 'Mostrar FPS', type: 'checkbox' },

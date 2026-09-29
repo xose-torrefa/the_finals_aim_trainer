@@ -1,6 +1,8 @@
 import { SETTINGS_SCHEMA, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { SIGHTS } from './weapons.js';
-import { SCENARIOS } from './scenarios.js';
+import { SCENARIOS, describeFixed } from './scenarios.js';
+import { getHistory } from './history.js';
+import { progressChart } from './chart.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
 
 const FIELD_LABELS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f.label]));
@@ -28,6 +30,8 @@ export class Menu {
     this.settings = settings;
     this.handlers = handlers;
     this.fieldRows = [];
+    this.fieldsets = [];
+    this.fixedLines = [];
     this.build();
     this.setMode('main');
   }
@@ -42,8 +46,10 @@ export class Menu {
         entries.map(([key, sc]) => {
           const input = h('input', { type: 'radio', name: 'scenario', value: key, checked: s.scenario === key,
             onchange: () => this.set('scenario', key) });
+          const fixed = h('p', { class: 'fixed' }, describeFixed(key));
+          this.fixedLines.push(fixed);
           return h('label', { class: 'scenario' }, input,
-            h('div', {}, h('strong', {}, sc.name), h('p', {}, sc.desc)));
+            h('div', {}, h('strong', {}, sc.name), h('p', {}, sc.desc), fixed));
         }),
       ]));
 
@@ -53,14 +59,24 @@ export class Menu {
     this.message = h('p', { class: 'message' });
     this.results = h('div', { class: 'results hidden' });
     this.readout = h('dl', { class: 'readout' });
+    this.progress = h('div', { class: 'progress' });
+    this.modeTabs = [['scenarios', 'Escenarios'], ['sandbox', 'Sandbox']].map(([mode, label]) => {
+      const tab = h('button', { onclick: () => this.set('mode', mode) }, label);
+      tab.dataset.mode = mode;
+      return tab;
+    });
+    this.modeNote = h('p', { class: 'mode-note' });
 
     const left = h('section', { class: 'panel left' },
       h('h1', {}, 'FINALS ', h('span', {}, 'AIM')),
+      h('div', { class: 'tabs' }, this.modeTabs),
+      this.modeNote,
       h('h2', {}, 'Escenario'),
       this.scenarioList,
       h('div', { class: 'actions' }, this.resumeBtn, this.startBtn, this.restartBtn),
       this.message,
       this.results,
+      this.progress,
       h('h2', {}, 'Valores efectivos'),
       this.readout,
       h('p', { class: 'keys' }, 'Clic izq: disparar · Clic der: ADS · WASD: moverse · Esc: pausa'),
@@ -68,9 +84,11 @@ export class Menu {
 
     const right = h('section', { class: 'panel right' },
       this.buildImport(),
-      SETTINGS_SCHEMA.map((group) => h('fieldset', {},
-        h('legend', {}, group.section),
-        group.fields.map((f) => this.buildField(f)))));
+      SETTINGS_SCHEMA.map((group) => {
+        const el = h('fieldset', {}, h('legend', {}, group.section), group.fields.map((f) => this.buildField(f)));
+        this.fieldsets.push({ el, keys: new Set(group.fields.map((f) => f.key)) });
+        return el;
+      }));
 
     this.root.replaceChildren(h('div', { class: 'menu-grid' }, left, right));
     this.refresh();
@@ -184,7 +202,21 @@ export class Menu {
 
   refresh() {
     const s = this.settings;
-    for (const { f, row } of this.fieldRows) row.classList.toggle('hidden', f.showIf ? !f.showIf(s) : false);
+    const ranked = s.mode === 'scenarios';
+    for (const { f, row } of this.fieldRows) {
+      row.classList.toggle('hidden', Boolean((f.showIf && !f.showIf(s)) || (f.sandbox && ranked)));
+    }
+    // Oculta los grupos que se quedan sin campos visibles
+    for (const { el, keys } of this.fieldsets) {
+      const visible = this.fieldRows.some(({ f, row }) => keys.has(f.key) && !row.classList.contains('hidden'));
+      el.classList.toggle('hidden', !visible);
+    }
+    for (const b of this.modeTabs) b.classList.toggle('active', b.dataset.mode === s.mode);
+    for (const line of this.fixedLines) line.classList.toggle('hidden', !ranked);
+    this.modeNote.textContent = ranked
+      ? 'Configuración fija por escenario: cada partida se guarda en tu historial. Sens, FOV y ADS son los tuyos.'
+      : 'Sandbox: configúralo todo a tu gusto. Las partidas no se guardan.';
+    this.renderProgress();
 
     const aspect = window.innerWidth / window.innerHeight;
     const w = this.handlers.getWeapon();
@@ -204,6 +236,41 @@ export class Menu {
     this.readout.replaceChildren(...rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]));
   }
 
+  renderProgress() {
+    const s = this.settings;
+    this.progress.classList.toggle('hidden', s.mode !== 'scenarios');
+    if (s.mode !== 'scenarios') return;
+    const def = SCENARIOS[s.scenario];
+    const entries = getHistory(s.scenario, def);
+    const title = h('h2', {}, `Progreso · ${def.name}`);
+    if (!entries.length) {
+      this.progress.replaceChildren(title, h('p', { class: 'empty' }, 'Aún no hay partidas registradas en este escenario.'));
+      return;
+    }
+    const fmt = def.formatScore;
+    const scores = entries.map((e) => e.score);
+    const recent = scores.slice(-10);
+    const tile = (label, value) => h('div', { class: 'tile' }, h('span', {}, label), h('strong', {}, value));
+    const date = (t) => new Date(t).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const num = (text) => h('td', { class: 'num' }, text);
+    this.progress.replaceChildren(
+      title,
+      h('div', { class: 'tiles' },
+        tile('Partidas', String(entries.length)),
+        tile('Récord', fmt(Math.max(...scores))),
+        tile(`Media últ. ${recent.length}`, fmt(Math.round((recent.reduce((a, b) => a + b, 0) / recent.length) * 10) / 10)),
+        tile('Última', fmt(scores.at(-1)))),
+      progressChart(entries, fmt, def.formatTick),
+      h('table', { class: 'recent' },
+        h('thead', {}, h('tr', {}, h('th', {}, 'Fecha'), h('th', { class: 'num' }, 'Puntuación'), h('th', { class: 'num' }, 'Precisión'), h('th', { class: 'num' }, 'cm/360'))),
+        h('tbody', {}, entries.slice(-10).reverse().map((e) => h('tr', {},
+          h('td', {}, date(e.t)),
+          num(fmt(e.score)),
+          num(Number.isFinite(e.accuracy) ? `${e.accuracy.toFixed(1)}%` : '—'),
+          num(Number.isFinite(e.cm360) ? e.cm360.toFixed(1) : '—'))))),
+    );
+  }
+
   /** 'main' | 'pause' | 'results' */
   setMode(mode) {
     this.mode = mode;
@@ -218,11 +285,17 @@ export class Menu {
     this.message.textContent = text;
   }
 
-  showResults(title, rows, bestText, isRecord) {
+  /** @param record null en Sandbox; en Escenarios { score, best, isRecord, count } */
+  showResults(title, rows, record) {
+    let note;
+    if (!record) note = 'Sandbox: esta partida no se guarda.';
+    else if (record.isRecord) note = `¡Nuevo récord! ${record.score} (antes ${record.best})`;
+    else if (record.best === null) note = `Primera partida registrada: ${record.score}`;
+    else note = `${record.score} · Récord ${record.best} · Partida nº ${record.count}`;
     this.results.replaceChildren(
       h('h2', {}, title),
       h('dl', {}, rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, String(v))])),
-      h('p', { class: isRecord ? 'best record' : 'best' }, isRecord ? `¡Nuevo récord! ${bestText}` : `Récord: ${bestText}`),
+      h('p', { class: record?.isRecord ? 'best record' : 'best' }, note),
     );
     this.setMode('results');
   }
