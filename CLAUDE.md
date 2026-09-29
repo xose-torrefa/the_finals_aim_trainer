@@ -20,23 +20,32 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - **`server.mjs` solo sirve una lista blanca:** `FILES` (rutas exactas) y `MOUNTS` (`/src/` y `/lib/three/` → `node_modules/three/build`), con las extensiones de `MIME`. Un archivo nuevo fuera de `src/`, o con otra extensión, da 404 hasta que se añada ahí. El servidor también rechaza los Host distintos de localhost.
 - **CSP estricta** (`script-src 'self'`, `style-src 'self'`, en la cabecera del servidor y en el `<meta>` de `index.html`):
   - No se pueden usar scripts ni `<style>` inline, `eval`, ni `setAttribute('style', …)`. `el.style.x = …` y `style.setProperty` sí funcionan.
-  - El menú construye el DOM con el helper `h()` de `menu.js`, sin `innerHTML`.
+  - La UI construye el DOM con el helper `h()` de `dom.js`, sin `innerHTML`.
 - **Import de three:** `import * as THREE from '/lib/three/three.module.js'`, con ruta absoluta.
 
 ## Arquitectura
 
 **`main.js`: bucle y máquina de estados**
-- Estados: `menu` → `playing` ↔ `paused` → `results`. Se pasa a `playing` o `paused` según `pointerlockchange`.
-- `startSession()` crea `ctx = { scene, camera, player, settings, weapon, stats }` y lo pasa a `SCENARIOS[key].create(ctx)`.
-- Orden de `update(dt)`:
+- Estados: `menu` → `ready` → `countdown` → `playing` ↔ `paused` → `results`.
+  - `ready`: la partida está creada pero espera un clic en el overlay (hace falta un gesto para capturar el ratón).
+  - `countdown`: dura `settings.countdown` s (0 = se salta). Se puede mirar y apuntar, pero ni moverse ni disparar, y ni el tiempo ni los objetivos avanzan. Se repite al volver de la pausa.
+  - Al capturar el ratón (`pointerlockchange`) se pasa de `ready`/`paused` a la cuenta atrás; al perderlo, de `countdown`/`playing` a `paused`.
+- `startSession(key, ranked)` crea `ctx = { scene, camera, player, settings, weapon, stats }` y lo pasa a `SCENARIOS[key].create(ctx)`. Si el ratón ya está capturado (reinicio en plena partida) va directo a la cuenta atrás; si no, a `ready`.
+- `settings.restartKey` (un `KeyboardEvent.code`) reinicia la última partida desde `ready`, `countdown`, `playing`, `paused` y la página de resultados.
+- Orden de `update(dt)` (se llama en `countdown` y `playing`):
   1. Progreso de ADS `adsT`, suavizado a `e`.
   2. FOV actual, interpolado linealmente en grados entre el de hipfire y el de ADS.
   3. Giro con el ratón: `hipDegPerCount × sensFactor(e)`.
-  4. Movimiento WASD.
-  5. `scenario.update`.
-  6. Disparo según cadencia (`shotTimer`).
-  7. Rayo central para `onTargetTime`.
-  8. HUD.
+  4. En `countdown`, aquí se actualiza la cuenta atrás y se sale.
+  5. Movimiento WASD.
+  6. `scenario.update`.
+  7. Disparo según cadencia (`shotTimer`).
+  8. Rayo central para `onTargetTime`.
+  9. HUD.
+
+**UI: `menu.js` y `overlay.js`**
+- `menu.js` es el menú a pantalla completa, con barra lateral y páginas: `scenarios` (tarjetas por grupo), `scenario` (ficha con estadísticas, gráfica e historial), `sandbox`, `settings` (pestañas por sección + valores efectivos) y `results`. Cada página se reconstruye al navegar; `refresh()` actualiza lo que depende de los ajustes sin perder el foco.
+- `overlay.js` es la capa sobre la escena durante la partida: "Haz clic para empezar", la cuenta atrás y el menú de pausa. Desde la pausa, "Ajustes" abre el menú con una tarjeta de "Partida en pausa" en la barra lateral.
 
 **Disparo**
 - Hitscan sin dispersión: cada bala va al centro exacto de la mira, por decisión del usuario.
@@ -45,12 +54,12 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
 
 **Modos Escenarios / Sandbox**
-- `settings.mode` elige el modo. En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
-- Los campos del esquema marcados `sandbox: true` solo se muestran y se aplican en Sandbox. Lo personal (sens, FOV, ADS, color…) es libre en ambos modos.
+- El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
+- Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, color, cuenta atrás…) y valen en ambos modos. `settings.scenario` es el escenario elegido en Sandbox.
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
 **`settings.js`: ajustes**
-- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente el formulario del menú (`showIf`, `min`/`max`, `hint`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
+- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `showIf`, `min`/`max`, `hint`; tipos `select`, `checkbox`, `color`, `number` y `key`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
 - `loadSettings()` solo acepta valores guardados del mismo tipo que el default.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
@@ -95,6 +104,6 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 Se prueba con Chrome headless controlado por el DevTools Protocol, con un script de Node sin dependencias (Node 22 trae `WebSocket` y `fetch` globales). Se lanza Chrome con `--headless=new --remote-debugging-port=… --enable-unsafe-swiftshader`.
 
-- **Para simular el pointer lock:** redefinir `document.pointerLockElement` con `Object.defineProperty`, de modo que devuelva el canvas, y lanzar `pointerlockchange`. Los botones del ratón se simulan con `mousedown`/`mouseup` sobre `document` (`button` 0 = disparo, 2 = ADS). El movimiento, con `pointerrawupdate` o `mousemove` y `movementX`/`movementY`.
+- **Para simular el pointer lock:** redefinir `document.pointerLockElement` con `Object.defineProperty` y sustituir `HTMLCanvasElement.prototype.requestPointerLock` y `document.exitPointerLock` por funciones que cambien ese valor y lancen `pointerlockchange`. Así funcionan el clic en el overlay de `ready`, "Continuar" y la salida con Esc. Los botones del ratón se simulan con `mousedown`/`mouseup` sobre `document` (`button` 0 = disparo, 2 = ADS). El movimiento, con `pointerrawupdate` o `mousemove` y `movementX`/`movementY`.
 - **Para probar la lógica:** `await import('/src/…')` desde la página devuelve las mismas instancias de módulo que usa el juego. Sirve para crear escenarios con un `ctx` falso y, parcheando el prototipo, para leer el estado interno (p. ej. `Target.prototype.update`).
 - **Trampa:** cualquier interacción con el menú guarda los ajustes que hay en memoria. Para probar con otros ajustes, escribe en localStorage y recarga la página **antes** de hacer clic en nada.

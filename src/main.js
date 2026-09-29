@@ -1,10 +1,11 @@
 import * as THREE from '/lib/three/three.module.js';
-import { DEG, loadSettings, saveSettings, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
-import { WEAPONS, SIGHTS, damageAt } from './weapons.js';
+import { DEG, loadSettings, saveSettings, keyLabel, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { resolveWeapon, damageAt } from './weapons.js';
 import { Input } from './input.js';
 import { buildWorld } from './world.js';
 import { Hud } from './hud.js';
 import { Menu } from './menu.js';
+import { Overlay } from './overlay.js';
 import { Sfx } from './audio.js';
 import { Impacts } from './impacts.js';
 import { SCENARIOS, createStats, scenarioSettings } from './scenarios.js';
@@ -42,8 +43,11 @@ window.addEventListener('resize', () => {
 
 // ---- Estado ----
 const player = { pos: new THREE.Vector3(0, EYE_HEIGHT, 0), yaw: 0, pitch: 0 };
-let state = 'menu'; // 'menu' | 'playing' | 'paused' | 'results'
+// 'menu' | 'ready' (esperando el clic) | 'countdown' | 'playing' | 'paused' | 'results'
+let state = 'menu';
 let session = null;
+let lastPlayed = null; // { key, ranked } de la última partida, para reiniciar desde los resultados
+let countdownLeft = 0;
 let adsT = 0;
 let shotTimer = 0;
 
@@ -51,29 +55,20 @@ const input = new Input(renderer.domElement, settings);
 const hud = new Hud(settings);
 const sfx = new Sfx(settings);
 const menu = new Menu(document.getElementById('menu'), settings, {
-  onStart: startSession,
+  onPlay: startSession,
   onResume: requestLock,
+  onRestart: restartSession,
+  onQuit: quitSession,
   onChange: onSettingChange,
-  getWeapon: () => currentWeapon(sessionSettings()),
+});
+const overlay = new Overlay(document.getElementById('overlay'), {
+  onStart: requestLock,
+  onResume: requestLock,
+  onRestart: restartSession,
+  onSettings: openSettingsFromPause,
+  onQuit: quitSession,
 });
 resize();
-
-/** Ajustes efectivos: en modo Escenarios se imponen los fijos del escenario. */
-function sessionSettings(key = settings.scenario, ranked = settings.mode === 'scenarios') {
-  return scenarioSettings(settings, key, ranked);
-}
-
-function currentWeapon(s) {
-  const base = WEAPONS[s.weapon];
-  const sight = s.sight === 'weapon' ? base.sight : s.sight;
-  return {
-    ...base,
-    sight,
-    fovMult: SIGHTS[sight].fovMult,
-    sniper: SIGHTS[sight].sniper === true,
-    adsTime: s.adsTimeOverride > 0 ? s.adsTimeOverride / 1000 : base.adsTime,
-  };
-}
 
 function onSettingChange(key) {
   saveSettings(settings);
@@ -82,14 +77,20 @@ function onSettingChange(key) {
   if (key === 'adsMode') input.ads = false;
   if (session) {
     // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
-    session.ctx.settings = sessionSettings(session.key, session.ranked);
-    session.ctx.weapon = currentWeapon(session.ctx.settings);
+    session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
+    session.ctx.weapon = resolveWeapon(session.ctx.settings);
   }
   hud.applySettings();
 }
 
 // ---- Sesión ----
-function startSession() {
+
+/**
+ * Prepara una partida. Si el ratón ya está capturado (reinicio en plena
+ * partida) arranca la cuenta atrás; si no, espera al clic del jugador.
+ * @param ranked true = modo Escenarios (configuración fija y registro)
+ */
+function startSession(key, ranked) {
   sfx.unlock();
   endScenario();
   player.pos.set(0, EYE_HEIGHT, 0);
@@ -98,66 +99,122 @@ function startSession() {
   syncCamera();
 
   const stats = createStats();
-  const ranked = settings.mode === 'scenarios';
-  const s = sessionSettings(settings.scenario, ranked);
-  const ctx = { scene, camera, player, settings: s, weapon: currentWeapon(s), stats };
-  session = {
-    key: settings.scenario,
-    def: SCENARIOS[settings.scenario],
-    ranked,
-    scenario: null,
-    ctx,
-    stats,
-    timeLeft: s.duration,
-  };
+  const s = scenarioSettings(settings, key, ranked);
+  const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
+  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration };
   session.scenario = session.def.create(ctx);
+  lastPlayed = { key, ranked };
   adsT = 0;
   shotTimer = 0;
-  requestLock();
+  input.ads = false;
+
+  menu.hide();
+  menu.setPaused(null);
+  if (input.locked) {
+    beginCountdown();
+  } else {
+    state = 'ready';
+    hud.hide();
+    overlay.showReady({ name: session.def.name, mode: ranked ? session.def.group : 'Sandbox', restartKey: keyLabel(settings.restartKey) });
+  }
+}
+
+function restartSession() {
+  if (lastPlayed) startSession(lastPlayed.key, lastPlayed.ranked);
 }
 
 function endScenario() {
   session?.scenario.dispose();
   session = null;
   impacts.clear();
+  camera.fov = hipVFovDeg(settings, camera.aspect); // por si se ha salido en ADS
+  camera.updateProjectionMatrix();
+}
+
+/** Abandona la partida y vuelve a la página desde la que se lanzó. */
+function quitSession() {
+  const from = session;
+  state = 'menu';
+  endScenario();
+  input.unlock();
+  overlay.hide();
+  hud.hide();
+  menu.setPaused(null);
+  if (from?.ranked) menu.show('scenario', from.key);
+  else menu.show(from ? 'sandbox' : undefined);
+}
+
+function beginCountdown() {
+  countdownLeft = settings.countdown;
+  input.takeFirePress();
+  menu.hide();
+  menu.setPaused(null);
+  hud.show();
+  if (countdownLeft > 0) {
+    state = 'countdown';
+    overlay.showCountdown();
+    overlay.setCount(Math.ceil(countdownLeft));
+    sfx.tick(false);
+  } else {
+    state = 'playing';
+    overlay.hide();
+  }
+}
+
+function openSettingsFromPause() {
+  overlay.hide();
+  menu.setPaused({ name: session.def.name });
+  menu.show('settings');
 }
 
 async function requestLock() {
   sfx.unlock();
+  overlay.setMessage('');
   menu.setMessage('');
   try {
     await input.lock();
   } catch {
     // Chrome bloquea volver a capturar el ratón ~1 s después de pulsar Esc
-    menu.setMessage('El navegador no ha dejado capturar el ratón. Espera un segundo y vuelve a intentarlo.');
+    const msg = 'El navegador no ha dejado capturar el ratón. Espera un segundo y vuelve a intentarlo.';
+    overlay.setMessage(msg);
+    menu.setMessage(msg);
   }
 }
 
 input.onLockChange = (locked) => {
-  if (locked && session) {
-    state = 'playing';
-    menu.hide();
-    hud.show();
-  } else if (!locked && state === 'playing') {
+  if (locked && session && (state === 'ready' || state === 'paused')) {
+    beginCountdown();
+  } else if (!locked && (state === 'playing' || state === 'countdown')) {
     state = 'paused';
     hud.hide();
-    menu.setMode('pause');
-    menu.show();
+    overlay.showPause({ name: session.def.name, restartKey: keyLabel(settings.restartKey) });
   }
 };
 
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+  if (e.code === 'Escape' && state === 'ready') {
+    quitSession();
+  } else if (e.code === settings.restartKey) {
+    const inGame = ['ready', 'countdown', 'playing', 'paused'].includes(state);
+    if (inGame || (state === 'results' && menu.page === 'results')) {
+      e.preventDefault();
+      restartSession();
+    }
+  }
+});
+
 function finishSession() {
   state = 'results';
-  const { def, scenario, stats, ctx, key } = session;
-  const title = `${def.name} — ${ctx.weapon.name}`;
-  if (session.ranked) {
-    const score = scenario.score(stats);
+  const { def, scenario, stats, ctx, key, ranked } = session;
+  const score = scenario.score(stats);
+  if (ranked) {
     const s = ctx.settings;
     const w = ctx.weapon;
     const hipV = hipVFovDeg(s, camera.aspect);
     const hipDpc = hipDegPerCount(s);
     const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
-    const list = addEntry(key, def, {
+    addEntry(key, def, {
       t: Date.now(),
       score,
       accuracy: stats.shots > 0 ? (100 * stats.hits) / stats.shots : null,
@@ -165,21 +222,14 @@ function finishSession() {
       adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
       fov: s.fov,
     });
-    const previous = list.slice(0, -1).map((e) => e.score);
-    const best = previous.length ? Math.max(...previous) : null;
-    menu.showResults(title, scenario.summary(stats), {
-      score: def.formatScore(score),
-      best: best === null ? null : def.formatScore(best),
-      isRecord: best !== null && score > best,
-      count: list.length,
-    });
-  } else {
-    menu.showResults(title, scenario.summary(stats), null);
   }
+  const rows = scenario.summary(stats);
+  const weaponName = ctx.weapon.name;
   input.unlock();
   hud.hide();
-  menu.show();
+  overlay.hide();
   endScenario();
+  menu.showResults({ key, ranked, weaponName, score, rows });
 }
 
 // ---- Juego ----
@@ -250,6 +300,24 @@ function update(dt) {
   player.yaw -= dx * radPerCount;
   player.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, player.pitch - dy * radPerCount));
 
+  // Cuenta atrás: se puede mirar y apuntar, pero ni moverse ni disparar, y el tiempo no corre
+  if (state === 'countdown') {
+    syncCamera();
+    const prev = Math.ceil(countdownLeft);
+    countdownLeft -= dt;
+    const n = Math.ceil(countdownLeft);
+    if (n !== prev) sfx.tick(n <= 0);
+    if (n <= 0) {
+      state = 'playing';
+      overlay.hide();
+      input.takeFirePress();
+    } else {
+      overlay.setCount(n);
+    }
+    hud.update(dt, { e, timeLeft: session.timeLeft, live: scenario.live(stats) });
+    return;
+  }
+
   // Movimiento
   if (s.allowMove) {
     const k = input.keys;
@@ -303,7 +371,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
-  if (state === 'playing') update(dt);
+  if (state === 'playing' || state === 'countdown') update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

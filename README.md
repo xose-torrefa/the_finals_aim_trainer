@@ -7,11 +7,13 @@ npm ci      # instala exactamente lo del lockfile (solo three)
 npm start   # http://localhost:5173
 ```
 
-Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
+Controles: clic izq. disparar · clic der. ADS · WASD moverse · R reiniciar · Esc pausa.
+
+Cada partida empieza en pausa: haz clic para capturar el ratón y arranca una cuenta atrás (3 s por defecto, configurable en Ajustes → Partida, igual que la tecla de reinicio).
 
 ## Modos
 
-- **Escenarios**: cada escenario tiene una configuración fija (arma, objetivos, distancia, velocidad, sin moverse, 60 s) para que las puntuaciones sean comparables. Cada partida se guarda en un historial (localStorage) con tu cm/360 y FOV del momento, y el menú muestra récord, media, gráfica y últimas partidas.
+- **Escenarios**: cada escenario tiene una configuración fija (arma, objetivos, distancia, velocidad, sin moverse, 60 s) para que las puntuaciones sean comparables. Cada partida se guarda en un historial (localStorage) con tu cm/360 y FOV del momento, y la ficha de cada escenario muestra récord, medias, gráfica de progreso e historial.
 - **Sandbox**: todo configurable; las partidas no se guardan.
 
 Sens, FOV, ADS, escalado focal, color de mira y volumen son siempre los tuyos, en ambos modos.
@@ -32,12 +34,12 @@ Sens, FOV, ADS, escalado focal, color de mira y volumen son siempre los tuyos, e
 - Sens de The Finals directamente (yaw 0.001: sens 47 @ 400 DPI = 48,64 cm/360), `cm/360` o `sens × yaw` personalizado para convertir desde otros juegos.
 - FOV vertical, como The Finals (verificado: misma distancia de ratón de borde a borde de pantalla que en el juego). También horizontal 16:9 u horizontal real para otros juegos.
 - ADS: el FOV lo define el nivel de mira, como en The Finals: Low 1× = 78%, Medium 1.25× = 68%, High 1.5× = 58% del FOV de hipfire (niveles del parche 7.0, porcentajes medidos por la comunidad). El FOV del francotirador está sin verificar.
-- Sens de ADS y de francotirador en %, como en el juego (78% por defecto), y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance). El menú muestra qué % daría 0% monitor distance con la mira elegida.
+- Sens de ADS y de francotirador en %, como en el juego (78% por defecto), y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance). Ajustes muestra, para cada nivel de mira, el FOV, los cm/360 de ADS y qué % daría 0% monitor distance.
 - Los valores de las armas (`src/weapons.js`) y hitboxes (`src/target.js`) son aproximados, para ir ajustándolos.
 
 ## Importar la configuración del juego
 
-El menú puede cargar `%LOCALAPPDATA%\Discovery\Saved\SaveGames\EmbarkOptionSaveGame.sav` (botón o arrastrar y soltar). Importa sens, FOV, sens de ADS (`MouseZoomSensitivity`), sens de francotirador (`MouseScopedZoomSensitivity`), escalado focal y color de mira. El archivo se lee en el navegador (`src/finals-save.js`), no se modifica ni se envía a ningún sitio. Los DPI hay que ponerlos a mano.
+Ajustes → Importar de The Finals puede cargar `%LOCALAPPDATA%\Discovery\Saved\SaveGames\EmbarkOptionSaveGame.sav` (botón o arrastrar y soltar). Importa sens, FOV, sens de ADS (`MouseZoomSensitivity`), sens de francotirador (`MouseScopedZoomSensitivity`), escalado focal y color de mira. El archivo se lee en el navegador (`src/finals-save.js`), no se modifica ni se envía a ningún sitio. Los DPI hay que ponerlos a mano.
 
 ## Seguridad (supply chain)
 

@@ -338,15 +338,15 @@ export function scenarioSettings(settings, key, ranked) {
   return ranked ? { ...settings, ...RANKED_BASE, ...SCENARIOS[key].fixed } : settings;
 }
 
-/** Resumen legible de la configuración fija de un escenario. */
-export function describeFixed(key) {
+/** Configuración fija de un escenario en piezas legibles (arma, mira, clase…). */
+export function fixedParts(key) {
   const def = SCENARIOS[key];
   const s = { ...RANKED_BASE, ...def.fixed };
   const parts = [WEAPONS[s.weapon].name.split(' (')[0]];
-  if (s.sight !== 'weapon') parts.push(`mira ${SIGHTS[s.sight].name.split(' (')[0]}`);
+  if (s.sight !== 'weapon') parts.push(`Mira ${SIGHTS[s.sight].name.split(' (')[0]}`);
   if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
   parts.push(`${s.duration} s`);
-  return parts.join(' · ');
+  return parts;
 }
 
 export const SCENARIOS = {

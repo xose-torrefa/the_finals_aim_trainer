@@ -66,3 +66,16 @@ export function idealTTK(w, hp, dist) {
   const shots = Math.ceil(hp / damageAt(w, dist));
   return ((shots - 1) * 60) / w.rpm;
 }
+
+/** Arma efectiva según los ajustes: mira elegida y tiempo de ADS forzado. */
+export function resolveWeapon(s) {
+  const base = WEAPONS[s.weapon];
+  const sight = s.sight === 'weapon' ? base.sight : s.sight;
+  return {
+    ...base,
+    sight,
+    fovMult: SIGHTS[sight].fovMult,
+    sniper: SIGHTS[sight].sniper === true,
+    adsTime: s.adsTimeOverride > 0 ? s.adsTimeOverride / 1000 : base.adsTime,
+  };
+}

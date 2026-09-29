@@ -27,11 +27,15 @@ export const DEFAULTS = {
   sight: 'weapon',
   adsTimeOverride: 0,
 
-  // Sesión. mode: 'scenarios' (configuración fija, con registro) | 'sandbox'
-  mode: 'scenarios',
+  // Sesión (Sandbox). `scenario` es el escenario elegido en Sandbox; en
+  // Escenarios se juega el de la ficha abierta.
   scenario: 'tracking',
   weapon: 'ar',
   duration: 60,
+
+  // Partida
+  countdown: 3,
+  restartKey: 'KeyR',
 
   // Objetivos
   targetClass: 'medium',
@@ -51,11 +55,13 @@ export const DEFAULTS = {
   volume: 0.4,
 };
 
-// Esquema que usa el menú para generar el formulario. Los campos `sandbox`
-// solo se muestran (y aplican) en modo Sandbox; en Escenarios son fijos.
+// Esquema que usa el menú para generar los formularios. `page` indica en qué
+// página va cada sección: 'settings' (lo personal, se aplica en ambos modos) o
+// 'sandbox' (solo en Sandbox; en Escenarios lo fija cada escenario).
 export const SETTINGS_SCHEMA = [
   {
     section: 'Sensibilidad',
+    page: 'settings',
     fields: [
       { key: 'sensMode', label: 'Modo', type: 'select', options: [['finals', 'Sens de The Finals'], ['cm360', 'cm/360'], ['game', 'Sens × yaw personalizado']] },
       { key: 'dpi', label: 'DPI', type: 'number', min: 100, max: 32000, step: 50 },
@@ -65,53 +71,71 @@ export const SETTINGS_SCHEMA = [
       { key: 'adsSensPct', label: 'Sensibilidad ADS (%)', type: 'number', min: 1, max: 500, step: 1 },
       { key: 'sniperSensPct', label: 'Sensibilidad francotirador (%)', type: 'number', min: 1, max: 500, step: 1, hint: 'En The Finals la mira del francotirador tiene su propio multiplicador.' },
       { key: 'focalScaling', label: 'Mouse Focal Length Sensitivity Scaling', type: 'checkbox', hint: 'ON: la sens de ADS además se reduce según el FOV de la mira (0% monitor distance).' },
-      { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactivar si notas saltos.' },
+      { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactívalo si notas saltos.' },
     ],
   },
   {
-    section: 'FOV / ADS',
+    section: 'FOV y ADS',
+    page: 'settings',
     fields: [
       { key: 'fov', label: 'FOV', type: 'number', min: 30, max: 150, step: 1 },
       { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['v', 'Vertical (The Finals)'], ['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)']] },
       { key: 'adsMode', label: 'ADS', type: 'select', options: [['hold', 'Mantener'], ['toggle', 'Alternar']] },
-      { key: 'sight', sandbox: true, label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
-      { key: 'adsTimeOverride', sandbox: true, label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },
   {
-    section: 'Arma',
+    section: 'Partida',
+    page: 'settings',
     fields: [
-      { key: 'weapon', sandbox: true, label: 'Arma', type: 'select', options: Object.entries(WEAPONS).map(([k, w]) => [k, w.name]) },
+      { key: 'countdown', label: 'Cuenta atrás (s)', type: 'number', min: 0, max: 10, step: 0.5, hint: 'Al empezar, al reiniciar y al volver de la pausa. 0 = sin cuenta atrás.' },
+      { key: 'restartKey', label: 'Reiniciar escenario', type: 'key', hint: 'Reinicia la partida en curso, también desde la pausa y los resultados.' },
     ],
   },
   {
-    section: 'Objetivos',
+    section: 'Mira y vídeo',
+    page: 'settings',
     fields: [
-      { key: 'targetClass', sandbox: true, label: 'Clase', type: 'select', options: [['light', 'Light (150 HP)'], ['medium', 'Medium (250 HP)'], ['heavy', 'Heavy (350 HP)'], ['random', 'Aleatoria']] },
-      { key: 'targetDistance', sandbox: true, label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
-      { key: 'targetSpeed', sandbox: true, label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
-      { key: 'targetJumps', sandbox: true, label: 'Saltos / dashes', type: 'checkbox' },
-      { key: 'sphereScale', sandbox: true, label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
-    ],
-  },
-  {
-    section: 'Jugador',
-    fields: [
-      { key: 'allowMove', sandbox: true, label: 'Moverse (WASD)', type: 'checkbox' },
-      { key: 'moveSpeed', sandbox: true, label: 'Velocidad (m/s)', type: 'number', min: 0, max: 15, step: 0.1 },
-    ],
-  },
-  {
-    section: 'Sesión y visual',
-    fields: [
-      { key: 'duration', sandbox: true, label: 'Duración (s)', type: 'number', min: 10, max: 600, step: 5 },
-      { key: 'crosshairColor', label: 'Color mira', type: 'color' },
-      { key: 'renderScale', label: 'Escala render', type: 'number', min: 0.25, max: 2, step: 0.05 },
+      { key: 'crosshairColor', label: 'Color de la mira', type: 'color' },
+      { key: 'renderScale', label: 'Escala de render', type: 'number', min: 0.25, max: 2, step: 0.05 },
       { key: 'showFps', label: 'Mostrar FPS', type: 'checkbox' },
       { key: 'volume', label: 'Volumen', type: 'number', min: 0, max: 1, step: 0.05 },
     ],
   },
+  {
+    section: 'Arma',
+    page: 'sandbox',
+    fields: [
+      { key: 'weapon', label: 'Arma', type: 'select', options: Object.entries(WEAPONS).map(([k, w]) => [k, w.name]) },
+      { key: 'sight', label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
+      { key: 'adsTimeOverride', label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
+    ],
+  },
+  {
+    section: 'Objetivos',
+    page: 'sandbox',
+    fields: [
+      { key: 'targetClass', label: 'Clase', type: 'select', options: [['light', 'Light (150 HP)'], ['medium', 'Medium (250 HP)'], ['heavy', 'Heavy (350 HP)'], ['random', 'Aleatoria']] },
+      { key: 'targetDistance', label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
+      { key: 'targetSpeed', label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
+      { key: 'targetJumps', label: 'Saltos / dashes', type: 'checkbox' },
+      { key: 'sphereScale', label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
+    ],
+  },
+  {
+    section: 'Jugador y sesión',
+    page: 'sandbox',
+    fields: [
+      { key: 'allowMove', label: 'Moverse (WASD)', type: 'checkbox' },
+      { key: 'moveSpeed', label: 'Velocidad (m/s)', type: 'number', min: 0, max: 15, step: 0.1 },
+      { key: 'duration', label: 'Duración (s)', type: 'number', min: 10, max: 600, step: 5 },
+    ],
+  },
 ];
+
+/** Nombre legible de un `KeyboardEvent.code` ('KeyR' → 'R'). */
+export function keyLabel(code) {
+  return code.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
+}
 
 export function loadSettings() {
   const s = { ...DEFAULTS };

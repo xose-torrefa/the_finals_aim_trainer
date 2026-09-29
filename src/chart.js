@@ -1,9 +1,7 @@
 // Gráfica de progreso: una sola serie (puntuación por partida) en SVG, con
 // cruceta y tooltip. Colores y trazos vienen de clases en styles.css (CSP).
 const NS = 'http://www.w3.org/2000/svg';
-const W = 460;
-const H = 170;
-const PAD = { l: 40, r: 14, t: 14, b: 24 };
+const PAD = { l: 40, r: 14, t: 18, b: 24 };
 
 function svg(tag, attrs = {}) {
   const el = document.createElementNS(NS, tag);
@@ -31,8 +29,10 @@ function niceTicks(min, max, count = 4) {
  * @param entries partidas { t, score, accuracy, cm360, fov } en orden cronológico
  * @param format  formatea una puntuación para mostrarla
  * @param tickFormat formatea los valores del eje Y
+ * @param size    tamaño del viewBox; conviene que se parezca al del contenedor
+ *                para que el texto no se escale demasiado
  */
-export function progressChart(entries, format, tickFormat = (v) => String(v)) {
+export function progressChart(entries, format, tickFormat = (v) => String(v), { width: W = 460, height: H = 170 } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'chart';
   const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Puntuación por partida' });

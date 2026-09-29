@@ -51,6 +51,11 @@ export class Sfx {
     this.blip(head ? 1500 : 950, 0.05, 'square', 0.6);
   }
 
+  /** Pitido de la cuenta atrás; `go` = el que marca el inicio. */
+  tick(go) {
+    this.blip(go ? 1320 : 660, go ? 0.18 : 0.08, 'sine', 0.8);
+  }
+
   kill() {
     this.blip(700, 0.12, 'triangle', 1);
     this.blip(1400, 0.12, 'triangle', 0.6);
