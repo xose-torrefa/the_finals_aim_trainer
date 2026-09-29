@@ -1,4 +1,4 @@
-import { WEAPONS } from './weapons.js';
+import { WEAPONS, SIGHTS } from './weapons.js';
 
 export const DEG = Math.PI / 180;
 // v2: modo de sens de The Finals y sens de ADS en %. Los ajustes v1 se descartan.
@@ -16,6 +16,7 @@ export const DEFAULTS = {
   gameSens: 47,
   gameYaw: FINALS_YAW,
   adsSensPct: 78,
+  sniperSensPct: 78,
   focalScaling: false,
   useRawUpdate: true,
 
@@ -23,7 +24,7 @@ export const DEFAULTS = {
   fov: 96,
   fovType: 'v', // The Finals usa FOV vertical (verificado midiendo en el juego)
   adsMode: 'hold',
-  adsZoomOverride: 0,
+  sight: 'weapon',
   adsTimeOverride: 0,
 
   // Sesión
@@ -59,7 +60,8 @@ export const SETTINGS_SCHEMA = [
       { key: 'gameSens', label: 'Sens del juego', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode !== 'cm360' },
       { key: 'gameYaw', label: 'Yaw (°/count a sens 1)', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game', hint: 'Constante del juego a convertir (The Finals = 0.001).' },
       { key: 'adsSensPct', label: 'Sensibilidad ADS (%)', type: 'number', min: 1, max: 500, step: 1 },
-      { key: 'focalScaling', label: 'Mouse Focal Length Sensitivity Scaling', type: 'checkbox', hint: 'ON: la sens de ADS además se reduce según el zoom del arma (0% monitor distance).' },
+      { key: 'sniperSensPct', label: 'Sensibilidad francotirador (%)', type: 'number', min: 1, max: 500, step: 1, hint: 'En The Finals la mira del francotirador tiene su propio multiplicador.' },
+      { key: 'focalScaling', label: 'Mouse Focal Length Sensitivity Scaling', type: 'checkbox', hint: 'ON: la sens de ADS además se reduce según el FOV de la mira (0% monitor distance).' },
       { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactivar si notas saltos.' },
     ],
   },
@@ -69,7 +71,7 @@ export const SETTINGS_SCHEMA = [
       { key: 'fov', label: 'FOV', type: 'number', min: 30, max: 150, step: 1 },
       { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['v', 'Vertical (The Finals)'], ['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)']] },
       { key: 'adsMode', label: 'ADS', type: 'select', options: [['hold', 'Mantener'], ['toggle', 'Alternar']] },
-      { key: 'adsZoomOverride', label: 'Zoom ADS (0 = arma)', type: 'number', min: 0, max: 12, step: 0.05 },
+      { key: 'sight', label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
       { key: 'adsTimeOverride', label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },
@@ -117,6 +119,7 @@ export function loadSettings() {
     }
   } catch { /* storage no disponible o corrupto: defaults */ }
   if (!WEAPONS[s.weapon]) s.weapon = DEFAULTS.weapon;
+  if (s.sight !== 'weapon' && !SIGHTS[s.sight]) s.sight = DEFAULTS.sight;
   return s;
 }
 
@@ -141,9 +144,14 @@ export function hipVFovDeg(s, aspect) {
   }
 }
 
-/** FOV vertical tras aplicar un zoom (ratio de focales). */
-export function zoomedVFovDeg(vDeg, zoom) {
-  return toDeg(2 * Math.atan(Math.tan(toRad(vDeg) / 2) / zoom));
+/** FOV vertical de ADS: en The Finals es un % fijo del FOV vertical de hipfire. */
+export function adsVFovDeg(hipVDeg, fovMult) {
+  return hipVDeg * fovMult;
+}
+
+/** Sens de ADS (%) que da 0% monitor distance respecto a hipfire. */
+export function mdvZeroPct(hipVDeg, adsVDeg) {
+  return (100 * Math.tan(toRad(adsVDeg) / 2)) / Math.tan(toRad(hipVDeg) / 2);
 }
 
 export function hFovFromV(vDeg, aspect) {
@@ -167,8 +175,9 @@ export function cm360FromDegPerCount(degPerCount, dpi) {
  * Multiplicador de sensibilidad respecto a hipfire.
  * @param e progreso de ADS (0 = hipfire, 1 = ADS completo)
  */
-export function sensFactor(s, e, curVDeg, hipVDeg) {
-  const mult = 1 + (s.adsSensPct / 100 - 1) * e;
+export function sensFactor(s, e, curVDeg, hipVDeg, sniper = false) {
+  const pct = sniper ? s.sniperSensPct : s.adsSensPct;
+  const mult = 1 + (pct / 100 - 1) * e;
   const focal = s.focalScaling
     ? Math.tan(toRad(curVDeg) / 2) / Math.tan(toRad(hipVDeg) / 2)
     : 1;

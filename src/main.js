@@ -1,6 +1,6 @@
 import * as THREE from '/lib/three/three.module.js';
-import { DEG, loadSettings, saveSettings, hipVFovDeg, zoomedVFovDeg, hipDegPerCount, sensFactor } from './settings.js';
-import { WEAPONS, damageAt } from './weapons.js';
+import { DEG, loadSettings, saveSettings, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor } from './settings.js';
+import { WEAPONS, SIGHTS, damageAt } from './weapons.js';
 import { Input } from './input.js';
 import { buildWorld } from './world.js';
 import { Hud } from './hud.js';
@@ -55,9 +55,12 @@ resize();
 
 function currentWeapon() {
   const base = WEAPONS[settings.weapon];
+  const sight = settings.sight === 'weapon' ? base.sight : settings.sight;
   return {
     ...base,
-    zoom: settings.adsZoomOverride > 0 ? settings.adsZoomOverride : base.zoom,
+    sight,
+    fovMult: SIGHTS[sight].fovMult,
+    sniper: SIGHTS[sight].sniper === true,
     adsTime: settings.adsTimeOverride > 0 ? settings.adsTimeOverride / 1000 : base.adsTime,
   };
 }
@@ -209,12 +212,12 @@ function update(dt) {
   const w = session.ctx.weapon;
   const { stats, scenario } = session;
 
-  // ADS: progreso lineal en el tiempo del arma; el zoom usa una curva suave
+  // ADS: progreso lineal en el tiempo del arma; el FOV usa una curva suave
   const rate = w.adsTime > 0 ? dt / w.adsTime : 1;
   adsT = input.ads ? Math.min(1, adsT + rate) : Math.max(0, adsT - rate);
   const e = smoothstep(adsT);
   const hipV = hipVFovDeg(settings, camera.aspect);
-  const curV = zoomedVFovDeg(hipV, 1 + (w.zoom - 1) * e);
+  const curV = hipV + (adsVFovDeg(hipV, w.fovMult) - hipV) * e;
   if (camera.fov !== curV) {
     camera.fov = curV;
     camera.updateProjectionMatrix();
@@ -222,7 +225,7 @@ function update(dt) {
 
   // Ratón
   const [dx, dy] = input.consumeMouse();
-  const radPerCount = hipDegPerCount(settings) * sensFactor(settings, e, curV, hipV) * DEG;
+  const radPerCount = hipDegPerCount(settings) * sensFactor(settings, e, curV, hipV, w.sniper) * DEG;
   player.yaw -= dx * radPerCount;
   player.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, player.pitch - dy * radPerCount));
 

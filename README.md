@@ -20,7 +20,8 @@ Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
 
 - Sens de The Finals directamente (yaw 0.001: sens 47 @ 400 DPI = 48,64 cm/360), `cm/360` o `sens × yaw` personalizado para convertir desde otros juegos.
 - FOV vertical, como The Finals (verificado: misma distancia de ratón de borde a borde de pantalla que en el juego). También horizontal 16:9 u horizontal real para otros juegos.
-- ADS: zoom y tiempo de ADS por arma. Sens de ADS en % como en el juego (78% por defecto) y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance).
+- ADS: el FOV lo define el nivel de mira, como en The Finals: Low 1× = 78%, Medium 1.25× = 68%, High 1.5× = 58% del FOV de hipfire (niveles del parche 7.0, porcentajes medidos por la comunidad). El FOV del francotirador está sin verificar.
+- Sens de ADS y de francotirador en %, como en el juego (78% por defecto), y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance). El menú muestra qué % daría 0% monitor distance con la mira elegida.
 - Los valores de las armas (`src/weapons.js`) y hitboxes (`src/target.js`) son aproximados, para ir ajustándolos.
 
 ## Seguridad (supply chain)

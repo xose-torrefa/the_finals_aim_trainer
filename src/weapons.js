@@ -1,6 +1,17 @@
+// Niveles de aumento de mira de The Finals (parche 7.0: Low 1×, Medium 1.25×,
+// High 1.5×). El FOV de ADS es un % del FOV vertical de hipfire, según las
+// mediciones de la comunidad (r/thefinals, "Ultimate Guide to FOV...").
+export const SIGHTS = {
+  low: { name: 'Low 1× (hierro, red dots, holográfico)', fovMult: 0.78 },
+  medium: { name: 'Medium 1.25× (Reflector Sight)', fovMult: 0.68 },
+  high: { name: 'High 1.5× (miras de aumento, arco)', fovMult: 0.58 },
+  // Sin verificar: el francotirador tiene su propia sens y su FOV no está medido
+  sniper: { name: 'Francotirador (FOV sin verificar)', fovMult: 0.4, sniper: true },
+};
+
 // Arquetipos de arma. Los números son APROXIMADOS (inspirados en The Finals) y
 // están pensados para ir ajustándose durante el desarrollo.
-//  zoom:       ratio de zoom en ADS (FOV hip / FOV ADS, en tangentes)
+//  sight:      mira por defecto (ver SIGHTS)
 //  adsTime:    segundos para entrar en ADS completo
 //  hipSpread / adsSpread: semiángulo del cono de dispersión en grados
 //  falloff:    [inicio m, fin m, multiplicador mínimo]
@@ -8,37 +19,37 @@ export const WEAPONS = {
   ar: {
     name: 'Rifle de asalto (tipo AKM/FCAR)',
     auto: true, rpm: 600, damage: 20, headMult: 1.5,
-    zoom: 1.35, adsTime: 0.22, hipSpread: 2.2, adsSpread: 0.15,
+    sight: 'low', adsTime: 0.22, hipSpread: 2.2, adsSpread: 0.15,
     falloff: [30, 50, 0.67],
   },
   smg: {
     name: 'Subfusil (tipo M11/XP-54)',
     auto: true, rpm: 900, damage: 13, headMult: 1.5,
-    zoom: 1.2, adsTime: 0.16, hipSpread: 2.6, adsSpread: 0.35,
+    sight: 'low', adsTime: 0.16, hipSpread: 2.6, adsSpread: 0.35,
     falloff: [18, 30, 0.6],
   },
   lmg: {
     name: 'Ametralladora ligera (tipo M60/Lewis)',
     auto: true, rpm: 550, damage: 23, headMult: 1.5,
-    zoom: 1.3, adsTime: 0.35, hipSpread: 3.5, adsSpread: 0.35,
+    sight: 'low', adsTime: 0.35, hipSpread: 3.5, adsSpread: 0.35,
     falloff: [35, 55, 0.7],
   },
   dmr: {
     name: 'Tirador semiautomático (tipo LH1)',
     auto: false, rpm: 300, damage: 45, headMult: 1.75,
-    zoom: 2.0, adsTime: 0.25, hipSpread: 3, adsSpread: 0,
+    sight: 'high', adsTime: 0.25, hipSpread: 3, adsSpread: 0,
     falloff: [45, 70, 0.8],
   },
   revolver: {
     name: 'Revólver (tipo R.357)',
     auto: false, rpm: 180, damage: 55, headMult: 1.5,
-    zoom: 1.25, adsTime: 0.15, hipSpread: 1.5, adsSpread: 0,
+    sight: 'low', adsTime: 0.15, hipSpread: 1.5, adsSpread: 0,
     falloff: [25, 40, 0.6],
   },
   sniper: {
     name: 'Francotirador (tipo SR-84)',
     auto: false, rpm: 60, damage: 118, headMult: 1.5,
-    zoom: 4.0, adsTime: 0.4, hipSpread: 6, adsSpread: 0,
+    sight: 'sniper', adsTime: 0.4, hipSpread: 6, adsSpread: 0,
     falloff: [80, 120, 0.9],
   },
 };

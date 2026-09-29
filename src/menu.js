@@ -1,4 +1,5 @@
-import { SETTINGS_SCHEMA, hipVFovDeg, zoomedVFovDeg, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { SETTINGS_SCHEMA, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { SIGHTS } from './weapons.js';
 import { SCENARIOS } from './scenarios.js';
 
 // Crea elementos sin innerHTML (compatible con la CSP y sin riesgo de inyección).
@@ -107,15 +108,17 @@ export class Menu {
     const aspect = window.innerWidth / window.innerHeight;
     const w = this.handlers.getWeapon();
     const hipV = hipVFovDeg(s, aspect);
-    const adsV = zoomedVFovDeg(hipV, w.zoom);
+    const adsV = adsVFovDeg(hipV, w.fovMult);
     const hipDpc = hipDegPerCount(s);
-    const adsDpc = hipDpc * sensFactor(s, 1, adsV, hipV);
+    const adsDpc = hipDpc * sensFactor(s, 1, adsV, hipV, w.sniper);
     const rows = [
       ['cm/360 hipfire', cm360FromDegPerCount(hipDpc, s.dpi).toFixed(1)],
       ['cm/360 ADS', cm360FromDegPerCount(adsDpc, s.dpi).toFixed(1)],
       ['FOV hip (H / V)', `${hFovFromV(hipV, aspect).toFixed(1)}° / ${hipV.toFixed(1)}°`],
       ['FOV ADS (H / V)', `${hFovFromV(adsV, aspect).toFixed(1)}° / ${adsV.toFixed(1)}°`],
-      ['Zoom / tiempo ADS', `${w.zoom.toFixed(2)}× / ${Math.round(w.adsTime * 1000)} ms`],
+      ['Mira', `${SIGHTS[w.sight].name.split(' (')[0]} · ${Math.round(w.fovMult * 100)}% FOV`],
+      ['Tiempo ADS', `${Math.round(w.adsTime * 1000)} ms`],
+      ['Sens ADS para 0% MDV', `${mdvZeroPct(hipV, adsV).toFixed(1)}%`],
     ];
     this.readout.replaceChildren(...rows.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]));
   }
