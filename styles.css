@@ -37,7 +37,7 @@ html, body {
 }
 
 #crosshair {
-  --gap: 8px;
+  --gap: 5px;
   --lines: 1;
   position: absolute;
   left: 50%;

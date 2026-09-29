@@ -1,5 +1,3 @@
-import { DEG } from './settings.js';
-
 const $ = (id) => document.getElementById(id);
 
 export class Hud {
@@ -34,15 +32,9 @@ export class Hud {
   }
 
   /**
-   * @param spreadDeg semiángulo de dispersión actual
-   * @param vFovDeg   FOV vertical actual
    * @param e         progreso de ADS 0..1
    */
-  update(dt, { spreadDeg, vFovDeg, e, timeLeft, live }) {
-    // Hueco de la cruceta = proyección en pantalla del cono de dispersión
-    const halfH = window.innerHeight / 2;
-    const gap = (Math.tan(spreadDeg * DEG) / Math.tan((vFovDeg * DEG) / 2)) * halfH;
-    this.crosshair.style.setProperty('--gap', `${(gap + 3).toFixed(1)}px`);
+  update(dt, { e, timeLeft, live }) {
     this.crosshair.style.setProperty('--lines', (1 - e).toFixed(3));
     this.vignette.style.opacity = (e * 0.7).toFixed(3);
 

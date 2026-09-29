@@ -190,15 +190,11 @@ function castRay(dir) {
   return { ...hit, target: hit.object.userData.target ?? null, part: hit.object.userData.part };
 }
 
-function shoot(w, e) {
+// Sin dispersión: cada bala va exactamente al centro de la mira.
+function shoot(w) {
   const { stats, scenario } = session;
   stats.shots++;
-
-  // Punto aleatorio uniforme dentro del cono de dispersión
-  const spread = (w.hipSpread + (w.adsSpread - w.hipSpread) * e) * DEG;
-  const r = Math.sqrt(Math.random()) * Math.tan(spread);
-  const a = Math.random() * Math.PI * 2;
-  rayDir.set(r * Math.cos(a), r * Math.sin(a), -1).normalize().applyQuaternion(camera.quaternion);
+  rayDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
 
   sfx.shot();
   const hit = castRay(rayDir);
@@ -268,7 +264,7 @@ function update(dt) {
   const wantFire = w.auto ? input.fire : input.takeFirePress();
   if (wantFire) {
     for (let n = 0; shotTimer <= 0 && n < 10; n++) {
-      shoot(w, e);
+      shoot(w);
       shotTimer += 60 / w.rpm;
       if (!w.auto) break;
     }
@@ -281,8 +277,6 @@ function update(dt) {
 
   session.timeLeft -= dt;
   hud.update(dt, {
-    spreadDeg: w.hipSpread + (w.adsSpread - w.hipSpread) * e,
-    vFovDeg: curV,
     e,
     timeLeft: session.timeLeft,
     live: scenario.live(stats),

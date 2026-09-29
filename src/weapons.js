@@ -13,43 +13,42 @@ export const SIGHTS = {
 // están pensados para ir ajustándose durante el desarrollo.
 //  sight:      mira por defecto (ver SIGHTS)
 //  adsTime:    segundos para entrar en ADS completo
-//  hipSpread / adsSpread: semiángulo del cono de dispersión en grados
 //  falloff:    [inicio m, fin m, multiplicador mínimo]
 export const WEAPONS = {
   ar: {
     name: 'Rifle de asalto (tipo AKM/FCAR)',
     auto: true, rpm: 600, damage: 20, headMult: 1.5,
-    sight: 'low', adsTime: 0.22, hipSpread: 2.2, adsSpread: 0.15,
+    sight: 'low', adsTime: 0.22,
     falloff: [30, 50, 0.67],
   },
   smg: {
     name: 'Subfusil (tipo M11/XP-54)',
     auto: true, rpm: 900, damage: 13, headMult: 1.5,
-    sight: 'low', adsTime: 0.16, hipSpread: 2.6, adsSpread: 0.35,
+    sight: 'low', adsTime: 0.16,
     falloff: [18, 30, 0.6],
   },
   lmg: {
     name: 'Ametralladora ligera (tipo M60/Lewis)',
     auto: true, rpm: 550, damage: 23, headMult: 1.5,
-    sight: 'low', adsTime: 0.35, hipSpread: 3.5, adsSpread: 0.35,
+    sight: 'low', adsTime: 0.35,
     falloff: [35, 55, 0.7],
   },
   dmr: {
     name: 'Tirador semiautomático (tipo LH1)',
     auto: false, rpm: 300, damage: 45, headMult: 1.75,
-    sight: 'high', adsTime: 0.25, hipSpread: 3, adsSpread: 0,
+    sight: 'high', adsTime: 0.25,
     falloff: [45, 70, 0.8],
   },
   revolver: {
     name: 'Revólver (tipo R.357)',
     auto: false, rpm: 180, damage: 55, headMult: 1.5,
-    sight: 'low', adsTime: 0.15, hipSpread: 1.5, adsSpread: 0,
+    sight: 'low', adsTime: 0.15,
     falloff: [25, 40, 0.6],
   },
   sniper: {
     name: 'Francotirador (tipo SR-84)',
     auto: false, rpm: 60, damage: 118, headMult: 1.5,
-    sight: 'sniper', adsTime: 0.4, hipSpread: 6, adsSpread: 0,
+    sight: 'sniper', adsTime: 0.4,
     falloff: [80, 120, 0.9],
   },
 };
