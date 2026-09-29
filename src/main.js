@@ -6,6 +6,7 @@ import { buildWorld } from './world.js';
 import { Hud } from './hud.js';
 import { Menu } from './menu.js';
 import { Sfx } from './audio.js';
+import { Impacts } from './impacts.js';
 import { SCENARIOS, createStats } from './scenarios.js';
 
 const EYE_HEIGHT = 1.7;
@@ -22,6 +23,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 600);
 camera.rotation.order = 'YXZ';
 const world = buildWorld(scene, renderer);
+const impacts = new Impacts(scene);
 
 function resize() {
   renderer.setPixelRatio(window.devicePixelRatio * settings.renderScale);
@@ -103,6 +105,7 @@ function startSession() {
 function endScenario() {
   session?.scenario.dispose();
   session = null;
+  impacts.clear();
 }
 
 async function requestLock() {
@@ -183,8 +186,8 @@ function castRay(dir) {
   raycaster.far = 600;
   const hits = raycaster.intersectObjects([...world.colliders, ...session.scenario.hitMeshes], false);
   if (!hits.length) return null;
-  const { object, distance } = hits[0];
-  return { distance, target: object.userData.target ?? null, part: object.userData.part };
+  const hit = hits[0];
+  return { ...hit, target: hit.object.userData.target ?? null, part: hit.object.userData.part };
 }
 
 function shoot(w, e) {
@@ -197,8 +200,13 @@ function shoot(w, e) {
   const a = Math.random() * Math.PI * 2;
   rayDir.set(r * Math.cos(a), r * Math.sin(a), -1).normalize().applyQuaternion(camera.quaternion);
 
+  sfx.shot();
   const hit = castRay(rayDir);
-  if (!hit?.target) return;
+  if (!hit) return;
+  if (!hit.target) {
+    impacts.add(hit);
+    return;
+  }
   const head = hit.part === 'head';
   const res = hit.target.applyDamage(damageAt(w, hit.distance) * (head ? w.headMult : 1), stats.time);
   stats.hits++;
@@ -253,6 +261,7 @@ function update(dt) {
 
   stats.time += dt;
   scenario.update(dt);
+  impacts.update(dt);
 
   // Disparo
   shotTimer -= dt;

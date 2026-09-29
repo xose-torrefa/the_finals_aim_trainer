@@ -26,6 +26,27 @@ export class Sfx {
     osc.stop(t + duration);
   }
 
+  /** Disparo: ráfaga corta de ruido filtrado, más baja que el sonido de impacto. */
+  shot() {
+    const vol = this.settings.volume;
+    if (!this.ctx || vol <= 0) return;
+    if (!this.noise) {
+      const len = Math.floor(this.ctx.sampleRate * 0.07);
+      this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = this.noise.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.noise;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 1800;
+    const amp = this.ctx.createGain();
+    amp.gain.value = vol * 0.35;
+    src.connect(filter).connect(amp).connect(this.ctx.destination);
+    src.start();
+  }
+
   hit(head) {
     this.blip(head ? 1500 : 950, 0.05, 'square', 0.6);
   }
