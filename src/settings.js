@@ -13,8 +13,8 @@ export const DEFAULTS = {
   cm360: 35,
   gameSens: 47,
   gameYaw: FINALS_YAW,
-  adsMultiplier: 1,
-  adsScaling: 'focal',
+  adsSensPct: 78,
+  focalScaling: false,
   useRawUpdate: true,
 
   // FOV / ADS
@@ -56,8 +56,8 @@ export const SETTINGS_SCHEMA = [
       { key: 'cm360', label: 'cm/360 hipfire', type: 'number', min: 1, max: 300, step: 0.1, showIf: (s) => s.sensMode === 'cm360' },
       { key: 'gameSens', label: 'Sens del juego', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode !== 'cm360' },
       { key: 'gameYaw', label: 'Yaw (°/count a sens 1)', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game', hint: 'Constante del juego a convertir (The Finals = 0.001).' },
-      { key: 'adsMultiplier', label: 'Multiplicador ADS', type: 'number', min: 0.01, max: 5, step: 0.01 },
-      { key: 'adsScaling', label: 'Escalado ADS', type: 'select', options: [['focal', 'Por zoom (0% MDV)'], ['none', 'Solo multiplicador']] },
+      { key: 'adsSensPct', label: 'Sensibilidad ADS (%)', type: 'number', min: 1, max: 500, step: 1 },
+      { key: 'focalScaling', label: 'Mouse Focal Length Sensitivity Scaling', type: 'checkbox', hint: 'ON: la sens de ADS además se reduce según el zoom del arma (0% monitor distance).' },
       { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactivar si notas saltos.' },
     ],
   },
@@ -165,8 +165,8 @@ export function cm360FromDegPerCount(degPerCount, dpi) {
  * @param e progreso de ADS (0 = hipfire, 1 = ADS completo)
  */
 export function sensFactor(s, e, curVDeg, hipVDeg) {
-  const mult = 1 + (s.adsMultiplier - 1) * e;
-  const focal = s.adsScaling === 'focal'
+  const mult = 1 + (s.adsSensPct / 100 - 1) * e;
+  const focal = s.focalScaling
     ? Math.tan(toRad(curVDeg) / 2) / Math.tan(toRad(hipVDeg) / 2)
     : 1;
   return mult * focal;
