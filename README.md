@@ -18,7 +18,7 @@ Controles: clic izq. disparar · clic der. ADS · WASD moverse · Esc pausa.
 
 ## Sensibilidad y FOV
 
-- `cm/360` o `sens × yaw`. El yaw de The Finals está sin calibrar (`gameYaw` en `src/settings.js`).
+- Sens de The Finals directamente (yaw 0.001: sens 47 @ 400 DPI = 48,64 cm/360), `cm/360` o `sens × yaw` personalizado para convertir desde otros juegos.
 - FOV horizontal 16:9, horizontal real o vertical.
 - ADS: zoom por arma (ratio de tangentes), tiempo de ADS y escalado de sens "por zoom" (0% monitor distance) o solo multiplicador.
 - Los valores de las armas (`src/weapons.js`) y hitboxes (`src/target.js`) son aproximados, para ir ajustándolos.

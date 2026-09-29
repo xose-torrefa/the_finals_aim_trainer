@@ -3,19 +3,22 @@ import { WEAPONS } from './weapons.js';
 export const DEG = Math.PI / 180;
 const STORAGE_KEY = 'finals-aim.settings.v1';
 
+// Grados por count a sens 1 en The Finals (sens 47 @ 400 DPI = 48,638 cm/360).
+export const FINALS_YAW = 0.001;
+
 export const DEFAULTS = {
   // Sensibilidad
-  sensMode: 'cm360',
-  dpi: 800,
+  sensMode: 'finals',
+  dpi: 400,
   cm360: 35,
-  gameSens: 1,
-  gameYaw: 0.07,
+  gameSens: 47,
+  gameYaw: FINALS_YAW,
   adsMultiplier: 1,
   adsScaling: 'focal',
   useRawUpdate: true,
 
   // FOV / ADS
-  fov: 90,
+  fov: 96,
   fovType: 'h16:9',
   adsMode: 'hold',
   adsZoomOverride: 0,
@@ -48,11 +51,11 @@ export const SETTINGS_SCHEMA = [
   {
     section: 'Sensibilidad',
     fields: [
-      { key: 'sensMode', label: 'Modo', type: 'select', options: [['cm360', 'cm/360'], ['game', 'Sens juego × yaw']] },
+      { key: 'sensMode', label: 'Modo', type: 'select', options: [['finals', 'Sens de The Finals'], ['cm360', 'cm/360'], ['game', 'Sens × yaw personalizado']] },
       { key: 'dpi', label: 'DPI', type: 'number', min: 100, max: 32000, step: 50 },
       { key: 'cm360', label: 'cm/360 hipfire', type: 'number', min: 1, max: 300, step: 0.1, showIf: (s) => s.sensMode === 'cm360' },
-      { key: 'gameSens', label: 'Sens del juego', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode === 'game' },
-      { key: 'gameYaw', label: 'Yaw (°/count a sens 1)', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game', hint: 'Constante del juego. Pendiente de calibrar para The Finals.' },
+      { key: 'gameSens', label: 'Sens del juego', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode !== 'cm360' },
+      { key: 'gameYaw', label: 'Yaw (°/count a sens 1)', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game', hint: 'Constante del juego a convertir (The Finals = 0.001).' },
       { key: 'adsMultiplier', label: 'Multiplicador ADS', type: 'number', min: 0.01, max: 5, step: 0.01 },
       { key: 'adsScaling', label: 'Escalado ADS', type: 'select', options: [['focal', 'Por zoom (0% MDV)'], ['none', 'Solo multiplicador']] },
       { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactivar si notas saltos.' },
@@ -148,6 +151,7 @@ export function hFovFromV(vDeg, aspect) {
 
 /** Grados de giro por count de ratón en hipfire. */
 export function hipDegPerCount(s) {
+  if (s.sensMode === 'finals') return s.gameSens * FINALS_YAW;
   if (s.sensMode === 'game') return s.gameSens * s.gameYaw;
   return 360 / ((s.cm360 / 2.54) * s.dpi);
 }
