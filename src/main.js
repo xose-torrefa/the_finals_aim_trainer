@@ -438,14 +438,23 @@ function update(dt) {
   impacts.update(dt);
   session.analysis.sample(stats.time);
 
-  // Disparo
+  // Disparo. Con cadencia libre (`freeFire`) cada clic dispara al momento. Si no,
+  // el clic de una semiautomática antes de que esté lista se pierde, como en el
+  // juego, y se cuenta en el análisis.
   shotTimer -= dt;
-  const wantFire = w.auto ? input.fire : input.takeFirePress();
-  if (wantFire) {
-    for (let n = 0; shotTimer <= 0 && n < 10; n++) {
+  if (w.auto) {
+    if (input.takeFirePress() && w.freeFire) shotTimer = 0;
+    for (let n = 0; input.fire && shotTimer <= 0 && n < 10; n++) {
       shoot(w);
       shotTimer += 60 / w.rpm;
-      if (!w.auto) break;
+    }
+  } else if (input.takeFirePress()) {
+    const early = shotTimer > 0;
+    if (w.freeFire) shotTimer = 0;
+    else session.analysis.click(early, 60 / w.rpm);
+    if (w.freeFire || !early) {
+      shoot(w);
+      shotTimer += 60 / w.rpm;
     }
   }
   if (shotTimer < 0) shotTimer = 0;

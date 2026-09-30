@@ -501,6 +501,7 @@ const killsTick = (v) => String(v);
 // La mira no está aquí: es de cada jugador (Ajustes → Armas), como la sens o el FOV.
 export const RANKED_BASE = {
   adsTimeOverride: 0,
+  fireRate: 'weapon',
   targetClass: 'medium',
   targetDistance: 20,
   targetSpeed: 1,
@@ -522,6 +523,7 @@ export function fixedParts(key) {
   const s = { ...RANKED_BASE, ...def.fixed };
   const parts = [weaponName(s.weapon, true)];
   if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
+  if (s.fireRate === 'free') parts.push(t('chip.freeFire'));
   if (s.allowMove) parts.push(t('chip.move'));
   parts.push(`${s.duration} s`);
   return parts;
@@ -638,8 +640,9 @@ export const SCENARIOS = {
   gridshot: {
     group: 'spheres',
     spheres: true,
-    version: 1,
-    fixed: { weapon: 'dmr' },
+    // v2: cadencia libre (con la del DMR, un jugador rápido iba por delante del arma)
+    version: 2,
+    fixed: { weapon: 'dmr', fireRate: 'free' },
     formatScore: kills,
     formatTick: killsTick,
     create: (ctx) => new GridshotScenario(ctx),
@@ -647,8 +650,9 @@ export const SCENARIOS = {
   precision: {
     group: 'spheres',
     spheres: true,
-    version: 1,
-    fixed: { weapon: 'dmr' },
+    // v2: cadencia libre
+    version: 2,
+    fixed: { weapon: 'dmr', fireRate: 'free' },
     formatScore: kills,
     formatTick: killsTick,
     create: (ctx) => new PrecisionScenario(ctx),

@@ -4,7 +4,9 @@
 //    dirección en que se mueve) y cuánto se pierde tras un cambio de sentido.
 //  - Flicks: si el movimiento principal se pasa del objetivo, se queda corto o
 //    cae encima, y cuánto se tarda en corregir hasta el disparo.
-// Todo se mide en grados sobre la vista del jugador.
+//  - Ritmo: con una semiautomática a su cadencia real, cuántos clics se pierden
+//    por llegar antes de que el arma esté lista.
+// El tracking y los flicks se miden en grados sobre la vista del jugador.
 import { DEG } from './settings.js';
 import { t } from './i18n.js';
 
@@ -19,7 +21,9 @@ const END_SPEED = 0.2; // fin del movimiento principal: velocidad < 20% del pico
 const MIN_TRACK_TIME = 3; // s de tracking necesarios para dar resultados
 const MIN_REVERSAL_TIME = 1;
 const MIN_FLICKS = 5;
+const MIN_CLICKS = 5;
 // Umbrales de los consejos (orientativos)
+const TIP_EARLY_PCT = 5; // % de clics perdidos
 const TIP_LAG_MS = 30;
 const TIP_REVERSAL_DROP = 15; // puntos de % en objetivo
 const TIP_FLICK_BIAS = 15; // puntos de % entre pasarse y quedarse corto
@@ -50,6 +54,20 @@ export class AimAnalysis {
     this.samples = []; // { t, yaw, pitch } de la mira
     this.segStart = 0;
     this.flicks = { n: 0, over: 0, under: 0, errPct: 0, correction: 0 };
+    // Ritmo
+    this.cadence = { clicks: 0, early: 0, interval: 0 };
+  }
+
+  /**
+   * Clic con una semiautomática a su cadencia real.
+   * @param early true si llegó antes de que el arma estuviera lista (no disparó)
+   * @param interval s entre disparos del arma
+   */
+  click(early, interval) {
+    const c = this.cadence;
+    c.clicks++;
+    if (early) c.early++;
+    c.interval = interval;
   }
 
   /** Guarda la dirección de la mira. Se llama cada frame antes de disparar. */
@@ -205,7 +223,14 @@ export class AimAnalysis {
       errPct: f.errPct / f.n,
       correctionMs: (1000 * f.correction) / f.n,
     } : null;
-    return tracking || flicks ? { tracking, flicks } : null;
+    const c = this.cadence;
+    const cadence = c.clicks >= MIN_CLICKS ? {
+      clicks: c.clicks,
+      early: c.early,
+      earlyPct: (100 * c.early) / c.clicks,
+      intervalMs: 1000 * c.interval,
+    } : null;
+    return tracking || flicks || cadence ? { tracking, flicks, cadence } : null;
   }
 }
 
@@ -244,6 +269,11 @@ export function analysisView(a) {
     );
     if (f.overPct - f.underPct > TIP_FLICK_BIAS) tips.push(t('an.tip.over'));
     else if (f.underPct - f.overPct > TIP_FLICK_BIAS) tips.push(t('an.tip.under'));
+  }
+  const c = a.cadence;
+  if (c) {
+    tiles.push([t('an.early'), t('an.earlyValue', { n: c.early, pct: pct(c.earlyPct) })]);
+    if (c.earlyPct > TIP_EARLY_PCT) tips.push(t('an.tip.early', { ms: Math.round(c.intervalMs) }));
   }
   return { tiles, tips };
 }

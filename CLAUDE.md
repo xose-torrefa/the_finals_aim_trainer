@@ -62,6 +62,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 **Disparo**
 - Hitscan sin dispersión: cada bala va al centro exacto de la mira, por decisión del usuario.
+- Cadencia (`fireRate`): `weapon` = los rpm del arma; `free` (`weapon.freeFire`) = cada clic dispara al momento, para escenarios de puntería pura (Gridshot, Precisión) donde un jugador rápido iría por delante del arma. Mantener pulsada una automática sigue a sus rpm. En Escenarios va en `RANKED_BASE` (`weapon`) o en el `fixed`; en Sandbox es un ajuste. Con la cadencia real, el clic de una semiautomática antes de tiempo se pierde (sin búfer, por no inventar el comportamiento del juego) y `analysis.click()` lo cuenta como "clic antes de tiempo".
 - `castRay()` lanza el rayo contra `world.colliders` + `scenario.colliders` + `scenario.hitMeshes`.
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.

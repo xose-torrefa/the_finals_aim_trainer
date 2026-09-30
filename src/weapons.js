@@ -89,7 +89,7 @@ export function weaponSight(s, weapon) {
   return { sight, level: sights[sight] };
 }
 
-/** Arma efectiva según los ajustes: mira elegida y tiempo de ADS forzado. */
+/** Arma efectiva según los ajustes: mira elegida, tiempo de ADS forzado y cadencia libre. */
 export function resolveWeapon(s) {
   const base = WEAPONS[s.weapon];
   const { sight, level } = weaponSight(s, s.weapon);
@@ -101,5 +101,8 @@ export function resolveWeapon(s) {
     fovMult: LEVELS[level].fovMult,
     sniper: LEVELS[level].sniper === true,
     adsTime: s.adsTimeOverride > 0 ? s.adsTimeOverride / 1000 : base.adsTime,
+    // Cada clic dispara aunque no se haya cumplido la cadencia (`rpm` sigue valiendo
+    // al mantener pulsada una automática y para el TTK teórico)
+    freeFire: s.fireRate === 'free',
   };
 }
