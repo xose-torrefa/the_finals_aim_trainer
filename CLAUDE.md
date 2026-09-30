@@ -40,7 +40,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   5. Movimiento WASD y `viewmodel.update` (también en la cuenta atrás, antes de salir).
   6. `scenario.update`.
   7. Disparo según cadencia (`shotTimer`) y `tracers.update`.
-  8. Rayo central para `onTargetTime`.
+  8. Rayo central para `onTargetTime` y `analysis.frame()` (antes del disparo se llama a `analysis.sample()`).
   9. HUD.
 - Render en dos pasadas (`renderer.autoClear = false`): el mundo y, si hay partida, `clearDepth()` + la escena del arma.
 
@@ -61,10 +61,19 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, color, cuenta atrás…) y valen en ambos modos. `settings.scenario` es el escenario elegido en Sandbox.
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
+**`analysis.js`: análisis de la puntería**
+- `AimAnalysis` se crea por sesión y no cambia la puntuación. Sale en la tarjeta de análisis de los resultados (Escenarios y Sandbox) y no se guarda en el historial.
+- Tracking: toma el objetivo más cercano a la mira y mide el error en la dirección en que se mueve en pantalla (> 0 = mira por detrás), convertido a ms. Solo cuenta mientras el jugador está "enganchado" (histéresis sobre `4 × radio angular`). Los 0,4 s tras un cambio de sentido se miden aparte.
+- Flicks: en el primer impacto a un objetivo con vida finita, analiza el recorrido de la mira desde el último impacto/kill o la aparición. El movimiento principal acaba cuando la velocidad cae al 20 % del pico; si ese punto está más allá del radio angular del objetivo es overshoot, y si no llega, undershoot.
+- Los objetivos exponen `aimInfo()` → `{ center, half, radius }` (centro, semialtura y radio en m).
+
+**Copia de seguridad (Ajustes → Copia de seguridad)**
+- Exporta un JSON `{ app: 'finals-aim', version, exported, settings, history }`. Al importar, `mergeHistory()` añade las partidas sin duplicar (misma `t` en el mismo `escenario@versión`) y solo con campos numéricos conocidos; los ajustes pasan por `sanitizeSettings()` y se aplican con `onReplace` (sin sonidos de prueba, reconstruyendo el menú).
+
 **`settings.js`: ajustes**
 - `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`; tipos `select`, `checkbox`, `color`, `number` y `key`). El esquema no lleva textos: `section`/`tab` son ids (`section.<id>`), la etiqueta es `field.<text ?? key>` y la pista, si existe en el diccionario, `field.<…>.hint`; las opciones son `[valor, clave de texto]`. Añadir un ajuste = poner su valor por defecto + su campo en el esquema + sus textos en todos los idiomas.
 - La mira tiene dos perfiles con los mismos campos (`CROSSHAIR_KEYS`) y prefijos `crosshair*` / `adsCrosshair*`. `adsCrosshair` decide qué se ve en ADS: `dot` (hipfire sin líneas), `same` o `custom`. `crosshair.js` la dibuja con divs (capa de contorno + capa de relleno) y se usa tanto en el HUD como en la vista previa de Ajustes.
-- `loadSettings()` solo acepta valores guardados del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
+- `sanitizeSettings()` (lo usan `loadSettings()` y la copia de seguridad) solo acepta valores del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
 **`scenarios.js`: escenarios**

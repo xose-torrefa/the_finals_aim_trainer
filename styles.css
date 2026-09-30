@@ -461,6 +461,13 @@ button.keybind.capturing { border-color: var(--accent); color: var(--accent); }
 .import-status:empty { display: none; }
 .import-status.error { color: var(--accent); }
 
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; justify-self: start; }
+.check input { margin: 0; accent-color: var(--accent); width: 18px; height: 18px; }
+
+/* Consejos del análisis de puntería */
+.tips { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.tips li::marker { color: var(--accent-2); }
+
 .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .pick {
   display: flex;

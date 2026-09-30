@@ -12,6 +12,7 @@ import { Viewmodel } from './viewmodel.js';
 import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios.js';
 import { addEntry } from './history.js';
+import { AimAnalysis } from './analysis.js';
 import { t, setLanguage } from './i18n.js';
 
 const EYE_HEIGHT = 1.7;
@@ -69,6 +70,7 @@ const menu = new Menu(document.getElementById('menu'), settings, {
   onRestart: restartSession,
   onQuit: quitSession,
   onChange: onSettingChange,
+  onReplace: onSettingsReplaced,
   onSound: (kind) => sfx.preview(kind),
 });
 const overlay = new Overlay(document.getElementById('overlay'), {
@@ -95,13 +97,30 @@ function onSettingChange(key) {
     setLanguage(settings.language);
     menu.rebuild();
   }
-  if (session) {
-    // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
-    session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
-    session.ctx.weapon = resolveWeapon(session.ctx.settings);
-    viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight);
-  }
+  applyToSession();
   hud.applySettings();
+}
+
+/** Tras importar una copia de seguridad: aplica todos los ajustes de golpe, sin sonidos de prueba. */
+function onSettingsReplaced() {
+  saveSettings(settings);
+  setLanguage(settings.language);
+  resize();
+  viewmodel.clearFlash();
+  tracers.clear();
+  input.bindMoveEvent();
+  input.ads = false;
+  applyToSession();
+  hud.applySettings();
+  menu.rebuild();
+}
+
+function applyToSession() {
+  if (!session) return;
+  // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
+  session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
+  session.ctx.weapon = resolveWeapon(session.ctx.settings);
+  viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight);
 }
 
 // ---- Sesión ----
@@ -122,7 +141,7 @@ function startSession(key, ranked) {
   const stats = createStats();
   const s = scenarioSettings(settings, key, ranked);
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
-  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration };
+  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player) };
   session.scenario = session.def.create(ctx);
   viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight);
   viewmodel.reset();
@@ -231,7 +250,7 @@ document.addEventListener('keydown', (e) => {
 
 function finishSession() {
   state = 'results';
-  const { def, scenario, stats, ctx, key, ranked } = session;
+  const { def, scenario, stats, ctx, key, ranked, analysis } = session;
   const score = scenario.score(stats);
   if (ranked) {
     const s = ctx.settings;
@@ -253,7 +272,7 @@ function finishSession() {
   hud.hide();
   overlay.hide();
   endScenario();
-  menu.showResults({ key, ranked, weapon: ctx.weapon.key, score, rows });
+  menu.showResults({ key, ranked, weapon: ctx.weapon.key, score, rows, analysis: analysis.result() });
 }
 
 // ---- Juego ----
@@ -300,7 +319,9 @@ function shoot(w) {
     return;
   }
   const head = hit.part === 'head';
+  const first = hit.target.firstHitTime === null;
   const res = hit.target.applyDamage(damageAt(w, hit.distance) * (head ? w.headMult : 1), stats.time);
+  session.analysis.onHit(hit.target, first, res.killed, hit.distance, stats.time);
   stats.hits++;
   if (head) stats.headshots++;
   stats.damage += res.dealt;
@@ -379,6 +400,7 @@ function update(dt) {
   stats.time += dt;
   scenario.update(dt);
   impacts.update(dt);
+  session.analysis.sample(stats.time);
 
   // Disparo
   shotTimer -= dt;
@@ -393,9 +415,11 @@ function update(dt) {
   if (shotTimer < 0) shotTimer = 0;
   tracers.update(dt, camera, window.innerHeight);
 
-  // Tiempo con la mira sobre un objetivo (métrica de tracking)
+  // Tiempo con la mira sobre un objetivo (métrica de tracking) y análisis de la puntería
   rayDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
-  if (castRay(rayDir)?.target) stats.onTargetTime += dt;
+  const aimed = castRay(rayDir)?.target ?? null;
+  if (aimed) stats.onTargetTime += dt;
+  session.analysis.frame(dt, stats.time, scenario.targets, aimed);
 
   session.timeLeft -= dt;
   hud.update(dt, {

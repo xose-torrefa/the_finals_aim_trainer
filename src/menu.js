@@ -1,8 +1,9 @@
 import { h } from './dom.js';
-import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, sanitizeSettings, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { SIGHTS, resolveWeapon, weaponName, sightName } from './weapons.js';
 import { SCENARIOS, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
-import { getHistory } from './history.js';
+import { getHistory, exportHistory, mergeHistory } from './history.js';
+import { analysisView } from './analysis.js';
 import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
@@ -13,6 +14,9 @@ const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 const CROSSHAIR_TAB = 'crosshair';
 const AUDIO_TAB = 'audio';
 const IMPORT_TAB = 'import';
+const BACKUP_TAB = 'backup';
+const BACKUP_APP = 'finals-aim';
+const BACKUP_MAX_BYTES = 20 * 1024 * 1024;
 const SOUND_TESTS = ['shot', 'hit', 'head', 'kill', 'countdown'];
 const tabOf = (g) => g.tab ?? g.section;
 
@@ -32,9 +36,26 @@ const tile = (label, value, cls = '') => h('div', { class: `tile ${cls}` }, h('s
 const chips = (parts) => h('div', { class: 'chips' }, parts.map((p) => h('span', { class: 'chip' }, p)));
 const card = (title, ...children) => h('section', { class: 'card' }, title && h('h2', {}, title), children);
 
+/** Hace que se pueda soltar un archivo sobre una tarjeta. */
+function dropZone(box, onFile) {
+  box.classList.add('import');
+  box.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    box.classList.add('dragging');
+  });
+  box.addEventListener('dragleave', () => box.classList.remove('dragging'));
+  box.addEventListener('drop', (e) => {
+    e.preventDefault();
+    box.classList.remove('dragging');
+    onFile(e.dataTransfer.files[0]);
+  });
+  return box;
+}
+
 export class Menu {
   /**
-   * @param handlers { onPlay(key, ranked), onResume(), onRestart(), onQuit(), onChange(key), onSound(kind) }
+   * @param handlers { onPlay(key, ranked), onResume(), onRestart(), onQuit(), onChange(key),
+   *   onReplace() (tras sustituir todos los ajustes), onSound(kind) }
    */
   constructor(root, settings, handlers) {
     this.root = root;
@@ -264,11 +285,10 @@ export class Menu {
 
   renderSettings() {
     this.readout = h('div', { class: 'readout-wrap' });
-    const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT_TAB];
+    const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT_TAB, BACKUP_TAB];
     const active = tabs.includes(this.settingsTab) ? this.settingsTab : tabs[0];
-    const body = active === IMPORT_TAB
-      ? this.buildImport()
-      : this.schemaCards('settings', active);
+    const custom = { [IMPORT_TAB]: () => this.buildImport(), [BACKUP_TAB]: () => this.buildBackup() };
+    const body = custom[active] ? custom[active]() : this.schemaCards('settings', active);
     return [
       h('header', { class: 'page-head' },
         h('h1', {}, t('nav.settings')),
@@ -372,18 +392,7 @@ export class Menu {
       this.importStatus,
       file,
     );
-    box.classList.add('import');
-    box.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      box.classList.add('dragging');
-    });
-    box.addEventListener('dragleave', () => box.classList.remove('dragging'));
-    box.addEventListener('drop', (e) => {
-      e.preventDefault();
-      box.classList.remove('dragging');
-      this.importSave(e.dataTransfer.files[0]);
-    });
-    return box;
+    return dropZone(box, (f) => this.importSave(f));
   }
 
   async importSave(file) {
@@ -409,6 +418,67 @@ export class Menu {
   setImportStatus(text, error = false) {
     this.importStatus.textContent = text;
     this.importStatus.classList.toggle('error', error);
+  }
+
+  // ---------- Copia de seguridad ----------
+
+  buildBackup() {
+    const file = h('input', { type: 'file', accept: '.json,application/json', class: 'hidden' });
+    file.addEventListener('change', () => {
+      this.importBackup(file.files[0]);
+      file.value = '';
+    });
+    this.withSettings = h('input', { type: 'checkbox', checked: true });
+    this.backupStatus = h('p', { class: 'import-status' });
+    const box = card(t('section.backup'),
+      h('p', { class: 'muted' }, t('backup.desc')),
+      h('div', { class: 'actions' },
+        h('button', { class: 'primary', onclick: () => this.exportBackup() }, t('backup.export')),
+        h('button', { onclick: () => file.click() }, t('backup.import'))),
+      h('label', { class: 'check' }, this.withSettings, h('span', {}, t('backup.withSettings'))),
+      this.backupStatus,
+      file,
+    );
+    return dropZone(box, (f) => this.importBackup(f));
+  }
+
+  setBackupStatus(text, error = false) {
+    this.backupStatus.textContent = text;
+    this.backupStatus.classList.toggle('error', error);
+  }
+
+  /** Descarga un JSON con los ajustes y todo el historial. */
+  exportBackup() {
+    const now = new Date();
+    const data = { app: BACKUP_APP, version: 1, exported: now.toISOString(), settings: this.settings, history: exportHistory() };
+    const name = `finals-aim-${now.toISOString().slice(0, 10)}.json`;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+    h('a', { href: url, download: name }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    this.setBackupStatus(t('backup.exported', { file: name }));
+  }
+
+  async importBackup(file) {
+    if (!file) return;
+    try {
+      if (file.size > BACKUP_MAX_BYTES) throw new Error(t('backup.tooBig'));
+      let data;
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        throw new Error(t('backup.invalid'));
+      }
+      if (data?.app !== BACKUP_APP || typeof data.history !== 'object') throw new Error(t('backup.invalid'));
+      const { added, skipped } = mergeHistory(data.history);
+      const restore = this.withSettings.checked && data.settings && typeof data.settings === 'object';
+      if (restore) {
+        Object.assign(this.settings, sanitizeSettings(data.settings));
+        this.handlers.onReplace(); // reconstruye el menú: el mensaje va después, ya en el idioma nuevo
+      }
+      this.setBackupStatus(t('backup.imported', { added, skipped }) + (restore ? t('backup.settingsRestored') : ''));
+    } catch (err) {
+      this.setBackupStatus(t('backup.failed', { error: err.message }), true);
+    }
   }
 
   // ---------- Formularios ----------
@@ -540,8 +610,17 @@ export class Menu {
             : h('button', { onclick: () => this.navigate('sandbox') }, t('results.setup')),
           h('button', { onclick: () => this.navigate('scenarios') }, t('nav.scenarios')))),
       h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(t(k), String(v)))),
+      r.analysis && this.analysisCard(r.analysis),
       r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
     ];
+  }
+
+  analysisCard(a) {
+    const { tiles, tips } = analysisView(a);
+    return card(t('card.analysis'),
+      h('div', { class: 'tiles' }, tiles.map(([k, v]) => tile(k, v))),
+      tips.length > 0 && h('ul', { class: 'tips' }, tips.map((text) => h('li', {}, text))),
+      h('p', { class: 'muted small' }, t('an.note')));
   }
 
   /** Muestra el menú en una página (por defecto, la última abierta). */

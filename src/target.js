@@ -102,7 +102,17 @@ export class Target {
     this.vy = 0;
     this.flash = 0;
 
+    // Zona a la que se apunta (para el análisis): de los pies a lo alto de la cabeza
+    const top = head.position.y + this.cls.headRadius;
+    this.aim = { center: new THREE.Vector3(), half: top / 2, radius: this.cls.radius };
+
     scene.add(this.group);
+  }
+
+  /** Centro, semialtura y radio (m) de la zona a la que se apunta. */
+  aimInfo() {
+    this.aim.center.copy(this.group.position).setY(this.group.position.y + this.aim.half);
+    return this.aim;
   }
 
   /** Coloca el objetivo; el carril de strafe es perpendicular a la línea con el jugador. */
@@ -223,7 +233,13 @@ export class SphereTarget {
     this.velocity = new THREE.Vector3();
     this.wanted = new THREE.Vector3();
     this.changeTimer = 0;
+    this.aim = { center: this.group.position, half: 0, radius };
     scene.add(this.group);
+  }
+
+  /** Misma interfaz que Target.aimInfo(). */
+  aimInfo() {
+    return this.aim;
   }
 
   place(position) {

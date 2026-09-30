@@ -38,3 +38,44 @@ export function addEntry(key, def, entry) {
   } catch { /* storage lleno o bloqueado: la partida no se guarda */ }
   return list;
 }
+
+const HISTORY_KEY = /^[\w-]+@\d+$/;
+const ENTRY_FIELDS = ['t', 'score', 'accuracy', 'cm360', 'adsCm360', 'fov'];
+
+/** Todo el historial, para la copia de seguridad. */
+export function exportHistory() {
+  return loadAll();
+}
+
+/**
+ * Añade al historial las partidas de una copia de seguridad. Las que ya
+ * están (misma fecha en el mismo escenario@versión) no se duplican.
+ * @returns { added, skipped }
+ */
+export function mergeHistory(incoming) {
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('history');
+  const all = loadAll();
+  let added = 0;
+  let skipped = 0;
+  for (const [k, list] of Object.entries(incoming)) {
+    if (!HISTORY_KEY.test(k) || !Array.isArray(list)) continue;
+    const current = Array.isArray(all[k]) ? all[k].filter(isEntry) : [];
+    const seen = new Set(current.map((e) => e.t));
+    for (const raw of list.filter(isEntry)) {
+      if (seen.has(raw.t)) {
+        skipped++;
+        continue;
+      }
+      // Solo los campos conocidos y numéricos (accuracy puede ser null)
+      const e = {};
+      for (const f of ENTRY_FIELDS) if (Number.isFinite(raw[f])) e[f] = raw[f];
+      if (raw.accuracy === null) e.accuracy = null;
+      current.push(e);
+      seen.add(e.t);
+      added++;
+    }
+    all[k] = current.sort((a, b) => a.t - b.t).slice(-MAX_ENTRIES);
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  return { added, skipped };
+}

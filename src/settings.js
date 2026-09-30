@@ -252,21 +252,32 @@ export function keyLabel(code) {
   return code.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num ');
 }
 
-export function loadSettings() {
+/**
+ * Ajustes completos a partir de unos guardados (localStorage o copia de
+ * seguridad): solo se aceptan valores del mismo tipo que el default y, en los
+ * desplegables, que sigan siendo una de las opciones.
+ */
+export function sanitizeSettings(stored) {
   const s = { ...DEFAULTS };
-  try {
-    OLD_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+  if (stored && typeof stored === 'object') {
     for (const k of Object.keys(DEFAULTS)) {
       if (typeof stored[k] === typeof DEFAULTS[k]) s[k] = stored[k];
     }
-  } catch { /* storage no disponible o corrupto: defaults */ }
-  // Un valor guardado que ya no es una opción del desplegable vuelve al default
+  }
   for (const f of SETTINGS_SCHEMA.flatMap((g) => g.fields)) {
     if (f.type === 'select' && !f.options.some(([v]) => v === s[f.key])) s[f.key] = DEFAULTS[f.key];
   }
   if (!LANGUAGES.some((l) => l.code === s.language)) s.language = DEFAULTS.language;
   return s;
+}
+
+export function loadSettings() {
+  let stored = null;
+  try {
+    OLD_STORAGE_KEYS.forEach((k) => localStorage.removeItem(k));
+    stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+  } catch { /* storage no disponible o corrupto: defaults */ }
+  return sanitizeSettings(stored);
 }
 
 export function saveSettings(s) {
