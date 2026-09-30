@@ -1,6 +1,7 @@
 import { WEAPONS, sightKey } from './weapons.js';
 import { SHOT_SOUNDS, HIT_SOUNDS } from './audio.js';
 import { LANGUAGES } from './i18n.js';
+import { WORLD_STYLES } from './world.js';
 
 export const DEG = Math.PI / 180;
 // v2: modo de sens de The Finals y sens de ADS en %. Los ajustes v1 se descartan.
@@ -93,7 +94,8 @@ export const DEFAULTS = {
   tracers: true,
   tracerColor: '#ffc860',
 
-  // Vídeo
+  // Vídeo. background: estilo del decorado (ver WORLD_STYLES en world.js)
+  background: 'city',
   showFps: true,
   renderScale: 1,
 
@@ -210,6 +212,7 @@ export const SETTINGS_SCHEMA = [
     section: 'video',
     page: 'settings',
     fields: [
+      { key: 'background', type: 'select', options: opts('background', WORLD_STYLES) },
       { key: 'renderScale', type: 'number', min: 0.25, max: 2, step: 0.05 },
       { key: 'showFps', type: 'checkbox' },
     ],

@@ -34,7 +34,7 @@ document.getElementById('app').append(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 600);
 camera.rotation.order = 'YXZ';
-const world = buildWorld(scene, renderer, { arenaRadius: ARENA_RADIUS });
+const world = buildWorld(scene, renderer, { arenaRadius: ARENA_RADIUS, style: settings.background });
 const impacts = new Impacts(scene);
 const tracers = new Tracers(scene);
 const viewmodel = new Viewmodel(settings);
@@ -99,6 +99,7 @@ function onSettingChange(key) {
   if (key === 'renderScale' || key.startsWith('fov') || key === 'viewmodelFov') resize();
   if (key === 'muzzleFlash') viewmodel.clearFlash();
   if (key === 'tracers') tracers.clear();
+  if (key === 'background') setBackground();
   if (key === 'useRawUpdate') input.bindMoveEvent();
   if (key === 'adsMode') input.ads = false;
   if (key === 'language') {
@@ -114,6 +115,7 @@ function onSettingsReplaced() {
   saveSettings(settings);
   setLanguage(settings.language);
   resize();
+  setBackground();
   viewmodel.clearFlash();
   tracers.clear();
   input.bindMoveEvent();
@@ -121,6 +123,12 @@ function onSettingsReplaced() {
   applyToSession();
   hud.applySettings();
   menu.rebuild();
+}
+
+/** Cambia el decorado; las marcas de impacto se borran porque podían estar en edificios que ya no existen. */
+function setBackground() {
+  world.setStyle(settings.background);
+  impacts.clear();
 }
 
 function applyToSession() {

@@ -4,9 +4,9 @@ import * as THREE from '../lib/three/three.module.js';
 // edificios que se deshacen en vóxeles en el borde de la arena. Todo procedural y sin marcas reales.
 // Los objetivos son naranja/amarillo/rosa: el fondo evita esos tonos para no quitarles contraste.
 // Nada de decorado dentro de la zona de tiro (hasta ~121 m, ±70°); cerca solo hay cosas detrás o a los lados.
+// Hay varios estilos de fondo (ajuste `background`): la ciudad y versiones más sobrias para quien prefiera
+// que el decorado no distraiga. Todos comparten luces, cuadrícula y niebla, así que los objetivos se ven igual.
 
-const SKY_ZENITH = 0x2f6fd0;
-const SKY_HORIZON = 0xd3e2ee;
 const SUN_DIR = new THREE.Vector3(30, 60, 20).normalize();
 const SEED = 0x51a7e; // el decorado es siempre el mismo (referencia estable entre partidas)
 
@@ -35,20 +35,23 @@ function canvasTexture(renderer, w, h, draw, repeat = true) {
 
 // ---- Texturas ----
 
-function gridTexture(renderer) {
+const FLOOR_GREY = { base: '#3a3f47', alt: '#434852', line: '#5a606b' };
+const FLOOR_DARK = { base: '#1c1f24', alt: '#212429', line: '#383d46' };
+
+function gridTexture(renderer, { base, alt, line }, grain) {
   return canvasTexture(renderer, 256, 256, (g, size) => {
-    g.fillStyle = '#3a3f47';
+    g.fillStyle = base;
     g.fillRect(0, 0, size, size);
-    g.fillStyle = '#434852';
+    g.fillStyle = alt;
     g.fillRect(0, 0, size / 2, size / 2);
     g.fillRect(size / 2, size / 2, size / 2, size / 2);
     // Grano de hormigón, muy suave para no ensuciar la referencia de la cuadrícula
     const rand = mulberry32(SEED + 1);
-    for (let i = 0; i < 1400; i++) {
+    for (let i = 0; grain && i < 1400; i++) {
       g.fillStyle = rand() < 0.5 ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.04)';
       g.fillRect(rand() * size, rand() * size, 1 + rand() * 2, 1 + rand() * 2);
     }
-    g.strokeStyle = '#5a606b';
+    g.strokeStyle = line;
     g.lineWidth = 2;
     g.strokeRect(1, 1, size - 2, size - 2);
   });
@@ -165,14 +168,17 @@ function dirAt(deg) {
 
 // ---- Cielo ----
 
-function buildSky() {
+/** Degradado del horizonte al cénit; `clouds` y `sun` (0–1) añaden las nubes y el sol. */
+function buildSky({ zenith, horizon, clouds = 0, sun = 0 }) {
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
     uniforms: {
-      zenith: { value: new THREE.Color(SKY_ZENITH) },
-      horizon: { value: new THREE.Color(SKY_HORIZON) },
+      zenith: { value: new THREE.Color(zenith) },
+      horizon: { value: new THREE.Color(horizon) },
       sunDir: { value: SUN_DIR },
+      clouds: { value: clouds },
+      sun: { value: sun },
     },
     vertexShader: /* glsl */ `
       varying vec3 vDir;
@@ -184,6 +190,8 @@ function buildSky() {
       uniform vec3 zenith;
       uniform vec3 horizon;
       uniform vec3 sunDir;
+      uniform float clouds;
+      uniform float sun;
       varying vec3 vDir;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float noise(vec2 p) {
@@ -199,9 +207,9 @@ function buildSky() {
         vec2 p = d.xz / (d.y + 0.12) * 1.2;
         float n = noise(p) * 0.5 + noise(p * 2.1 + 3.7) * 0.3 + noise(p * 4.3 - 1.3) * 0.2;
         float cloud = smoothstep(0.55, 0.8, n) * smoothstep(0.03, 0.25, d.y);
-        col = mix(col, vec3(1.0), cloud * 0.65);
+        col = mix(col, vec3(1.0), cloud * 0.65 * clouds);
         float s = max(dot(d, sunDir), 0.0);
-        col += vec3(1.0, 0.95, 0.85) * (pow(s, 900.0) * 3.0 + pow(s, 10.0) * 0.15);
+        col += vec3(1.0, 0.95, 0.85) * (pow(s, 900.0) * 3.0 + pow(s, 10.0) * 0.15) * sun;
         gl_FragColor = vec4(col, 1.0);
         #include <colorspace_fragment>
       }`,
@@ -491,46 +499,23 @@ function buildContainers(rand, b) {
   }
 }
 
-// ---- Mundo ----
+// ---- Bloques lisos (estilo "simple") ----
 
-/** Arena: suelo con cuadrícula (referencia de distancia/movimiento), cielo y ciudad alrededor. */
-export function buildWorld(scene, renderer, { arenaRadius = 0 } = {}) {
-  scene.background = new THREE.Color(SKY_HORIZON);
-  scene.fog = new THREE.Fog(SKY_HORIZON, 125, 400);
-  scene.add(buildSky());
+const BLOCK_COLORS = [0xc3cad3, 0xb9c1cb, 0xcdd1d7, 0xb4bfc6];
 
-  scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4436, 1.6));
-  const sun = new THREE.DirectionalLight(0xfff6ea, 2.2);
-  sun.position.copy(SUN_DIR).multiplyScalar(80);
-  scene.add(sun);
-
-  const colliders = [];
-  const add = (mesh, collide = true) => {
-    scene.add(mesh);
-    if (collide) colliders.push(mesh);
-  };
-
-  const floorSize = 1000;
-  const tex = gridTexture(renderer);
-  tex.repeat.set(floorSize / 4, floorSize / 4); // celdas de 2 m
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(floorSize, floorSize),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }),
-  );
-  floor.rotation.x = -Math.PI / 2;
-  add(floor);
-
-  // Borde de la zona por la que se puede mover el jugador, pintado en el suelo
-  if (arenaRadius > 0) {
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(arenaRadius - 0.12, arenaRadius, 128),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.01;
-    add(ring, false);
+/** Un anillo de bloques sin textura ni detalles y de alturas parecidas: un horizonte que no distrae. */
+function buildBlocks(rand, b) {
+  for (let a = rand() * 9; a < 360; a += 7 + rand() * 4) {
+    const r = 175 + rand() * 45;
+    const { x, z, ry } = dirAt(a);
+    const color = BLOCK_COLORS[Math.floor(rand() * BLOCK_COLORS.length)];
+    b.box(x * r, 0, z * r, 18 + rand() * 12, 18 + rand() * 22, 18 + rand() * 10, color, { ry });
   }
+}
 
+// ---- Estilos ----
+
+function buildCity(renderer, add) {
   const rand = mulberry32(SEED);
   const office = new GeoBuilder();
   const glass = new GeoBuilder();
@@ -551,12 +536,103 @@ export function buildWorld(scene, renderer, { arenaRadius = 0 } = {}) {
 
   const voxels = buildVoxels(rand, towers);
   for (const mesh of voxels.meshes) add(mesh, false);
+  return voxels.update;
+}
+
+function buildSimple(renderer, add) {
+  const blocks = new GeoBuilder();
+  buildBlocks(mulberry32(SEED), blocks);
+  add(blocks.mesh(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 })));
+}
+
+// sky: colores del cielo (el horizonte es también el color de la niebla) y si lleva nubes y sol;
+// floor: colores de la cuadrícula; build(renderer, add): decorado, puede devolver un update(time).
+const STYLES = {
+  city: { sky: { zenith: 0x2f6fd0, horizon: 0xd3e2ee, clouds: 1, sun: 1 }, floor: FLOOR_GREY, grain: true, build: buildCity },
+  simple: { sky: { zenith: 0x5f8fc6, horizon: 0xcfdbe5 }, floor: FLOOR_GREY, build: buildSimple },
+  minimal: { sky: { zenith: 0x8aa9c9, horizon: 0xcfd8e0 }, floor: FLOOR_GREY },
+  dark: { sky: { zenith: 0x0f1115, horizon: 0x262a31 }, floor: FLOOR_DARK },
+};
+export const WORLD_STYLES = Object.keys(STYLES);
+
+function disposeTree(root) {
+  root.traverse((o) => {
+    o.geometry?.dispose();
+    for (const m of [o.material ?? []].flat()) {
+      m.map?.dispose();
+      m.dispose();
+    }
+    if (o.isInstancedMesh) o.dispose();
+  });
+}
+
+// ---- Mundo ----
+
+/**
+ * Arena: suelo con cuadrícula (referencia de distancia/movimiento), cielo y el decorado del estilo
+ * elegido (`WORLD_STYLES`). `setStyle()` lo cambia en caliente y actualiza `colliders` en el sitio.
+ */
+export function buildWorld(scene, renderer, { arenaRadius = 0, style = 'city' } = {}) {
+  scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4436, 1.6));
+  const sun = new THREE.DirectionalLight(0xfff6ea, 2.2);
+  sun.position.copy(SUN_DIR).multiplyScalar(80);
+  scene.add(sun);
+
+  // Borde de la zona por la que se puede mover el jugador, pintado en el suelo
+  if (arenaRadius > 0) {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(arenaRadius - 0.12, arenaRadius, 128),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }),
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.01;
+    scene.add(ring);
+  }
+
+  const colliders = [];
+  let current = null; // { key, group, update }
+
+  function setStyle(key) {
+    if (!STYLES[key]) key = 'city';
+    if (current?.key === key) return;
+    if (current) {
+      scene.remove(current.group);
+      disposeTree(current.group);
+    }
+    const def = STYLES[key];
+    const group = new THREE.Group();
+    colliders.length = 0;
+    const add = (mesh, collide = true) => {
+      group.add(mesh);
+      if (collide) colliders.push(mesh);
+    };
+
+    scene.background = new THREE.Color(def.sky.horizon);
+    scene.fog = new THREE.Fog(def.sky.horizon, 125, 400);
+    group.add(buildSky(def.sky));
+
+    const floorSize = 1000;
+    const tex = gridTexture(renderer, def.floor, def.grain);
+    tex.repeat.set(floorSize / 4, floorSize / 4); // celdas de 2 m
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(floorSize, floorSize),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    add(floor);
+
+    const update = def.build?.(renderer, add);
+    current = { key, group, update };
+    scene.add(group);
+  }
+  setStyle(style);
 
   return {
     colliders,
-    /** Anima el decorado (solo los vóxeles). `time` en segundos. */
+    setStyle,
+    /** Anima el decorado (los vóxeles de la ciudad). `time` en segundos. */
     update(time) {
-      voxels.update(time);
+      current.update?.(time);
     },
   };
 }
