@@ -1,4 +1,5 @@
 import { WEAPONS, SIGHTS } from './weapons.js';
+import { SHOT_SOUNDS, HIT_SOUNDS } from './audio.js';
 
 export const DEG = Math.PI / 180;
 // v2: modo de sens de The Finals y sens de ADS en %. Los ajustes v1 se descartan.
@@ -74,10 +75,18 @@ export const DEFAULTS = {
   adsCrosshair: 'dot',
   ...prefixed('adsCrosshair', CROSSHAIR_ADS),
 
-  // Visual / audio
+  // Vídeo
   showFps: true,
   renderScale: 1,
+
+  // Audio: volumen general × el de cada categoría
   volume: 0.4,
+  shotSound: 'punch',
+  shotVolume: 1,
+  hitSound: 'blip',
+  hitVolume: 1,
+  killVolume: 1,
+  countdownVolume: 1,
 };
 
 /** Campos del formulario de un perfil de mira. */
@@ -153,12 +162,24 @@ export const SETTINGS_SCHEMA = [
     ],
   },
   {
-    section: 'Vídeo y sonido',
+    section: 'Vídeo',
     page: 'settings',
     fields: [
       { key: 'renderScale', label: 'Escala de render', type: 'number', min: 0.25, max: 2, step: 0.05 },
       { key: 'showFps', label: 'Mostrar FPS', type: 'checkbox' },
-      { key: 'volume', label: 'Volumen', type: 'number', min: 0, max: 1, step: 0.05 },
+    ],
+  },
+  {
+    section: 'Audio',
+    page: 'settings',
+    fields: [
+      { key: 'volume', label: 'Volumen general', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'shotSound', label: 'Sonido de disparo', type: 'select', options: SHOT_SOUNDS },
+      { key: 'shotVolume', label: 'Volumen de disparos', type: 'number', min: 0, max: 1, step: 0.05, hint: '0 = silenciados.' },
+      { key: 'hitSound', label: 'Sonido de impacto', type: 'select', options: HIT_SOUNDS },
+      { key: 'hitVolume', label: 'Volumen de impactos', type: 'number', min: 0, max: 1, step: 0.05, hint: 'Cuerpo y headshot. 0 = silenciados.' },
+      { key: 'killVolume', label: 'Volumen de eliminaciones', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'countdownVolume', label: 'Volumen de la cuenta atrás', type: 'number', min: 0, max: 1, step: 0.05 },
     ],
   },
   {
@@ -206,9 +227,10 @@ export function loadSettings() {
       if (typeof stored[k] === typeof DEFAULTS[k]) s[k] = stored[k];
     }
   } catch { /* storage no disponible o corrupto: defaults */ }
-  if (!WEAPONS[s.weapon]) s.weapon = DEFAULTS.weapon;
-  if (s.sight !== 'weapon' && !SIGHTS[s.sight]) s.sight = DEFAULTS.sight;
-  if (!['dot', 'same', 'custom'].includes(s.adsCrosshair)) s.adsCrosshair = DEFAULTS.adsCrosshair;
+  // Un valor guardado que ya no es una opción del desplegable vuelve al default
+  for (const f of SETTINGS_SCHEMA.flatMap((g) => g.fields)) {
+    if (f.type === 'select' && !f.options.some(([v]) => v === s[f.key])) s[f.key] = DEFAULTS[f.key];
+  }
   return s;
 }
 

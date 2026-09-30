@@ -61,7 +61,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 **`settings.js`: ajustes**
 - `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`, `hint`; tipos `select`, `checkbox`, `color`, `number` y `key`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
 - La mira tiene dos perfiles con los mismos campos (`CROSSHAIR_KEYS`) y prefijos `crosshair*` / `adsCrosshair*`. `adsCrosshair` decide qué se ve en ADS: `dot` (hipfire sin líneas), `same` o `custom`. `crosshair.js` la dibuja con divs (capa de contorno + capa de relleno) y se usa tanto en el HUD como en la vista previa de Ajustes.
-- `loadSettings()` solo acepta valores guardados del mismo tipo que el default.
+- `loadSettings()` solo acepta valores guardados del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
 **`scenarios.js`: escenarios**
@@ -80,6 +80,10 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 **`target.js`: objetivos**
 - `Target` (humanoide) y `SphereTarget` comparten interfaz: `hitMeshes`, `update(dt, camera)`, `applyDamage(amount, now)`, `dispose()`, `spawnTime`, `firstHitTime`.
 - El movimiento del humanoide se configura con `opts.ai` (ver `DEFAULT_AI`). El cambio de sentido tiene en cuenta la distancia de frenada para no salirse de `lane` ni de `ai.depth`.
+
+**`audio.js`: sonido**
+- Todos los sonidos se sintetizan con Web Audio (`tone()` y `noise()`), sin ficheros. Hay variantes de disparo (`SHOT_SOUNDS`) y de impacto (`HIT_SOUNDS`), y cada categoría tiene su volumen (`shotVolume`, `hitVolume`, `killVolume`, `countdownVolume`), que se multiplica por `volume`.
+- Si añades un sonido, iguala su nivel con los demás: renderízalo con un `OfflineAudioContext` y compara el pico y el RMS.
 
 **`finals-save.js`: importar la configuración del juego**
 - Lee `EmbarkOptionSaveGame.sav` en el navegador. Es un save GVAS de Unreal con pares de FString (`int32` de longitud con el `\0` incluido, negativa si es UTF-16) de la forma `GameplayOption.*` → valor en texto.

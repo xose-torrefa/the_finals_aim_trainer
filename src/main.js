@@ -60,6 +60,7 @@ const menu = new Menu(document.getElementById('menu'), settings, {
   onRestart: restartSession,
   onQuit: quitSession,
   onChange: onSettingChange,
+  onSound: (kind) => sfx.preview(kind),
 });
 const overlay = new Overlay(document.getElementById('overlay'), {
   onStart: requestLock,
@@ -70,8 +71,12 @@ const overlay = new Overlay(document.getElementById('overlay'), {
 });
 resize();
 
+// Al cambiar un ajuste de audio desde el menú suena el sonido afectado
+const SOUND_PREVIEW = { volume: 'hit', shotSound: 'shot', shotVolume: 'shot', hitSound: 'hit', hitVolume: 'hit', killVolume: 'kill', countdownVolume: 'countdown' };
+
 function onSettingChange(key) {
   saveSettings(settings);
+  if (SOUND_PREVIEW[key]) sfx.preview(SOUND_PREVIEW[key]);
   if (key === 'renderScale' || key.startsWith('fov')) resize();
   if (key === 'useRawUpdate') input.bindMoveEvent();
   if (key === 'adsMode') input.ads = false;

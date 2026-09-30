@@ -10,6 +10,8 @@ import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-sav
 const FIELD_LABELS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f.label]));
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
 const CROSSHAIR_TAB = 'Mira';
+const AUDIO_TAB = 'Audio';
+const SOUND_TESTS = [['shot', 'Disparo'], ['hit', 'Impacto'], ['head', 'Headshot'], ['kill', 'Eliminación'], ['countdown', 'Cuenta atrás']];
 const tabOf = (g) => g.tab ?? g.section;
 
 const NAV = [
@@ -34,7 +36,7 @@ const card = (title, ...children) => h('section', { class: 'card' }, title && h(
 
 export class Menu {
   /**
-   * @param handlers { onPlay(key, ranked), onResume(), onRestart(), onQuit(), onChange(key) }
+   * @param handlers { onPlay(key, ranked), onResume(), onRestart(), onQuit(), onChange(key), onSound(kind) }
    */
   constructor(root, settings, handlers) {
     this.root = root;
@@ -275,6 +277,8 @@ export class Menu {
           body),
         h('aside', { class: 'stack sticky' },
           active === CROSSHAIR_TAB && this.buildCrosshairPreview(),
+          active === AUDIO_TAB && card('Probar sonidos',
+            h('div', { class: 'actions' }, SOUND_TESTS.map(([kind, label]) => h('button', { onclick: () => this.handlers.onSound(kind) }, label)))),
           card('Valores efectivos', this.readout))),
     ];
   }
