@@ -7,6 +7,7 @@ import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines,
 import { analysisView } from './analysis.js';
 import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
+import { encodeCrosshair, decodeCrosshair } from './crosshair-code.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
 import { t, hasText, locale, LANGUAGES } from './i18n.js';
 import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './display.js';
@@ -341,6 +342,7 @@ export class Menu {
           body),
         h('aside', { class: 'stack sticky' },
           active === CROSSHAIR_TAB && this.buildCrosshairPreview(),
+          active === CROSSHAIR_TAB && this.buildCrosshairCode(),
           active === AUDIO_TAB && card(t('settings.testSounds'),
             h('div', { class: 'actions' }, SOUND_TESTS.map((kind) => h('button', { onclick: () => this.handlers.onSound(kind) }, t(`test.${kind}`))))),
           card(t('settings.effective'), this.readout))),
@@ -363,6 +365,57 @@ export class Menu {
     hip.setOpacity(s.crosshairOpacity);
     ads.apply(adsProfile);
     ads.setOpacity(adsProfile.opacity);
+    if (this.chCode) this.chCode.value = encodeCrosshair(s);
+  }
+
+  /** Tarjeta para copiar el código de la mira actual o importar el de otra persona. */
+  buildCrosshairCode() {
+    this.chCode = h('input', { type: 'text', class: 'code-text', readOnly: true, spellcheck: false, onfocus: (e) => e.target.select() });
+    const paste = h('input', { type: 'text', class: 'code-text', spellcheck: false, placeholder: t('chCode.placeholder') });
+    const status = h('p', { class: 'import-status' });
+    const setStatus = (text, error = false) => {
+      status.textContent = text;
+      status.classList.toggle('error', error);
+    };
+    const undo = h('button', { class: 'hidden' }, t('chCode.undo'));
+    let previous = null;
+    const apply = (values) => {
+      Object.assign(this.settings, values);
+      Object.keys(values).forEach((k) => this.handlers.onChange(k));
+      this.syncInputs();
+      this.refresh();
+    };
+    const importCode = () => {
+      const values = decodeCrosshair(paste.value);
+      if (!values) return setStatus(t('chCode.invalid'), true);
+      previous = Object.fromEntries(Object.keys(values).map((k) => [k, this.settings[k]]));
+      apply(values);
+      paste.value = '';
+      undo.classList.remove('hidden');
+      setStatus(t('chCode.imported'));
+    };
+    paste.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') importCode();
+    });
+    undo.addEventListener('click', () => {
+      apply(previous);
+      undo.classList.add('hidden');
+      setStatus(t('chCode.undone'));
+    });
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(this.chCode.value);
+        setStatus(t('chCode.copied'));
+      } catch {
+        this.chCode.select();
+        setStatus(t('chCode.copyManually'), true);
+      }
+    };
+    return card(t('chCode.title'),
+      h('p', { class: 'muted' }, t('chCode.desc')),
+      h('div', { class: 'code-row' }, this.chCode, h('button', { onclick: copy }, t('chCode.copy'))),
+      h('div', { class: 'code-row' }, paste, h('button', { class: 'primary', onclick: importCode }, t('chCode.import')), undo),
+      status);
   }
 
   /** Pone en ADS una mira propia igual a la de hipfire, como punto de partida. */

@@ -16,7 +16,8 @@ No install, no account, no tracking. Everything runs in your browser and your da
 - **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
 - **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot.
 - **Routines.** Built-in playlists (Warm-up, Tracking, Flicks and precision) plus your own.
-- **Customizable crosshair** with separate hipfire and ADS profiles, first-person weapon models, tracers and synthesized sounds.
+- **Customizable crosshair** with separate hipfire and ADS profiles, and **crosshair codes** to share yours or import someone else's.
+- First-person weapon models, tracers and synthesized sounds.
 - **Backup** your settings, history and routines to a JSON file and restore them anywhere.
 - **English and Spanish** UI.
 

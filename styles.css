@@ -470,6 +470,20 @@ button.keybind.capturing { border-color: var(--accent); color: var(--accent); }
   color: #10131a;
 }
 
+.code-row { display: flex; gap: 8px; }
+.code-row input {
+  flex: 1;
+  min-width: 0;
+  font: 13px ui-monospace, Consolas, monospace;
+  padding: 6px 8px;
+  background: var(--input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.code-row input:focus { outline: none; border-color: var(--accent); }
+.code-row button { flex-shrink: 0; }
+
 .import.dragging { border-color: var(--accent); background: var(--accent-soft); }
 .import-status { color: var(--accent-2); min-height: 1em; }
 .import-status:empty { display: none; }
