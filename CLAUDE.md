@@ -51,6 +51,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   9. HUD.
 - Render en dos pasadas (`renderer.autoClear = false`): el mundo y, si hay partida, `clearDepth()` + la escena del arma.
 
+**`world.js`: decorado**
+- Suelo con cuadrícula de 2 m (referencia de distancia, no quitarla), cielo por shader y una ciudad procedural con semilla fija (skyline, pantallas, grúas, contenedores y vóxeles animados con `world.update(time)`). Inspirado en el estilo de concurso televisado, sin marcas ni recursos del juego.
+- Nada de decorado dentro de la zona de tiro (hasta ~121 m y ±70°): cerca solo detrás o a los lados. El fondo evita naranja/amarillo/rosa para no quitar contraste a los objetivos.
+- Los edificios se combinan en unas pocas mallas (`GeoBuilder`) que también son `colliders`.
+
 **UI: `menu.js` y `overlay.js`**
 - `menu.js` es el menú a pantalla completa, con barra lateral y páginas: `scenarios` (tarjetas por grupo, con partidas de hoy y racha), `scenario` (ficha con estadísticas, tendencia, gráfica e historial), `routines`, `routine-edit` y `routine-summary`, `sandbox`, `settings` (pestañas por sección + valores efectivos) y `results`. Cada página se reconstruye al navegar; `refresh()` actualiza lo que depende de los ajustes sin perder el foco.
 - `overlay.js` es la capa sobre la escena durante la partida: "Haz clic para empezar", la cuenta atrás y el menú de pausa. Desde la pausa, "Ajustes" abre el menú con una tarjeta de "Partida en pausa" en la barra lateral.

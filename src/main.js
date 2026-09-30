@@ -34,7 +34,7 @@ document.getElementById('app').append(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 600);
 camera.rotation.order = 'YXZ';
-const world = buildWorld(scene, renderer);
+const world = buildWorld(scene, renderer, { arenaRadius: ARENA_RADIUS });
 const impacts = new Impacts(scene);
 const tracers = new Tracers(scene);
 const viewmodel = new Viewmodel(settings);
@@ -471,6 +471,7 @@ function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   if (state === 'playing' || state === 'countdown') update(dt);
+  world.update(now / 1000);
   renderer.clear();
   renderer.render(scene, camera);
   if (session) {
