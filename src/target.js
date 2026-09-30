@@ -29,7 +29,14 @@ const rand = (a, b) => a + Math.random() * (b - a);
 
 // Parámetros del movimiento. `dashChance: null` = solo dashea la clase Light.
 // `depth`: semirrango (m) de movimiento hacia/desde el jugador.
-const DEFAULT_AI = { changeMin: 0.25, changeMax: 1.1, flipChance: 0.75, jumpChance: 0.18, dashChance: null, depth: 0 };
+// `depthSpeed`: velocidad en profundidad respecto a la de strafe.
+// `sweep`: en profundidad va de un extremo al otro en vez de cambiar al azar.
+// `padChance`/`padSpeed`: probabilidad en cada cambio de usar un jump pad y
+// velocidad vertical (m/s) con la que sale.
+const DEFAULT_AI = {
+  changeMin: 0.25, changeMax: 1.1, flipChance: 0.75, jumpChance: 0.18, dashChance: null,
+  depth: 0, depthSpeed: 0.6, sweep: false, padChance: 0, padSpeed: 14,
+};
 
 export function pickClass(setting) {
   if (setting !== 'random') return setting;
@@ -94,7 +101,7 @@ export class Target {
     this.lateralVel = 0;
     this.depth = 0;
     this.depthVel = 0;
-    this.depthDir = 0;
+    this.depthDir = this.ai.sweep ? 1 : 0;
     this.dir = Math.random() < 0.5 ? -1 : 1;
     this.changeTimer = rand(0.2, 0.9);
     this.dashTimer = 0;
@@ -149,9 +156,10 @@ export class Target {
     if (this.changeTimer <= 0) {
       if (Math.random() < ai.flipChance) this.dir *= -1;
       this.changeTimer = rand(ai.changeMin, ai.changeMax);
-      if (ai.depth > 0) this.depthDir = Math.floor(Math.random() * 3) - 1;
+      if (ai.depth > 0 && !ai.sweep) this.depthDir = Math.floor(Math.random() * 3) - 1;
+      if (this.y === 0 && ai.padChance > 0 && Math.random() < ai.padChance) this.vy = ai.padSpeed;
       if (this.jumps) {
-        if (this.y === 0 && Math.random() < ai.jumpChance) this.vy = JUMP_SPEED;
+        if (this.y === 0 && this.vy === 0 && Math.random() < ai.jumpChance) this.vy = JUMP_SPEED;
         if (Math.random() < ai.dashChance) this.dashTimer = 0.18;
       }
     }
@@ -170,7 +178,7 @@ export class Target {
     const approach = (vel, target) => vel + Math.max(-maxDv, Math.min(maxDv, target - vel));
     this.lateralVel = approach(this.lateralVel, this.dir * speed);
     this.lateral += this.lateralVel * dt;
-    this.depthVel = approach(this.depthVel, this.depthDir * speed * 0.6);
+    this.depthVel = approach(this.depthVel, this.depthDir * speed * ai.depthSpeed);
     this.depth += this.depthVel * dt;
 
     if (this.y > 0 || this.vy > 0) {

@@ -292,7 +292,7 @@ function syncCamera() {
 function castRay(dir) {
   raycaster.set(camera.position, dir);
   raycaster.far = 600;
-  const hits = raycaster.intersectObjects([...world.colliders, ...session.scenario.hitMeshes], false);
+  const hits = raycaster.intersectObjects([...world.colliders, ...session.scenario.colliders, ...session.scenario.hitMeshes], false);
   if (!hits.length) return null;
   const hit = hits[0];
   return { ...hit, target: hit.object.userData.target ?? null, part: hit.object.userData.part };
@@ -396,6 +396,7 @@ function update(dt) {
   }
   syncCamera();
   viewmodel.update(dt, { e, turn, moving });
+  if (moving) stats.movingTime += dt;
 
   stats.time += dt;
   scenario.update(dt);
@@ -418,7 +419,7 @@ function update(dt) {
   // Tiempo con la mira sobre un objetivo (métrica de tracking) y análisis de la puntería
   rayDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
   const aimed = castRay(rayDir)?.target ?? null;
-  if (aimed) stats.onTargetTime += dt;
+  if (aimed && (moving || !scenario.requireMove)) stats.onTargetTime += dt;
   session.analysis.frame(dt, stats.time, scenario.targets, aimed);
 
   session.timeLeft -= dt;

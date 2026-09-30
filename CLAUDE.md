@@ -50,7 +50,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 **Disparo**
 - Hitscan sin dispersión: cada bala va al centro exacto de la mira, por decisión del usuario.
-- `castRay()` lanza el rayo contra `world.colliders` + `scenario.hitMeshes`.
+- `castRay()` lanza el rayo contra `world.colliders` + `scenario.colliders` + `scenario.hitMeshes`.
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
 - `viewmodel.js` es el arma en primera persona: escena y cámara propias (FOV `viewmodelFov`), modelos hechos con primitivas según `weapon.key` y la mira. En ADS pone el eje de la mira (`y`, `z`) en el centro de la pantalla; los visores (`scoped`) ocultan el arma con el ADS completo. El retroceso es solo visual. También dibuja el fogonazo.
@@ -77,9 +77,10 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
 **`scenarios.js`: escenarios**
-- Registro `SCENARIOS`: `{ group, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group` (un id: `humanoids`, `spheres`). Nombre y descripción van en los diccionarios (`scenarioName(key)`, `scenarioDesc(key)`, `groupName(group)`).
+- Registro `SCENARIOS`: `{ group, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group` (un id: `humanoids`, `situations`, `spheres`). Nombre y descripción van en los diccionarios (`scenarioName(key)`, `scenarioDesc(key)`, `groupName(group)`).
 - Una instancia de escenario implementa:
   - `targets` y `hitMeshes`.
+  - `colliders` (geometría propia que para las balas, p. ej. las coberturas de Peeks) y `requireMove` (el tiempo en objetivo solo cuenta con WASD pulsado). Los pone la clase base vacíos/`false`.
   - `update(dt)`.
   - `onHit(target, part, { dealt, killed })`.
   - `live(stats)` (texto ya traducido), `score(stats)`, `summary(stats)` (pares `[clave de texto, valor]`, se traducen al mostrarlos).
@@ -88,10 +89,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `TrackingScenario` recibe un `makeTarget(scenario)`.
   - `EliminationScenario` gestiona respawns con `pending`.
   - `SphereFlickScenario` es la base de Gridshot y Precisión.
+  - `MoveTrackScenario` (tracking con `requireMove`) y `PeekScenario` (coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest).
 
 **`target.js`: objetivos**
 - `Target` (humanoide) y `SphereTarget` comparten interfaz: `hitMeshes`, `update(dt, camera)`, `applyDamage(amount, now)`, `dispose()`, `spawnTime`, `firstHitTime`.
-- El movimiento del humanoide se configura con `opts.ai` (ver `DEFAULT_AI`). El cambio de sentido tiene en cuenta la distancia de frenada para no salirse de `lane` ni de `ai.depth`.
+- El movimiento del humanoide se configura con `opts.ai` (ver `DEFAULT_AI`: jump pads con `padChance`/`padSpeed`, idas y venidas en profundidad con `sweep`/`depthSpeed`). Las opciones nuevas deben venir apagadas por defecto para no cambiar los escenarios existentes. El cambio de sentido tiene en cuenta la distancia de frenada para no salirse de `lane` ni de `ai.depth`.
 
 **`audio.js`: sonido**
 - Todos los sonidos se sintetizan con Web Audio (`tone()` y `noise()`), sin ficheros. Hay variantes de disparo (`SHOT_SOUNDS`) y de impacto (`HIT_SOUNDS`), y cada categoría tiene su volumen (`shotVolume`, `hitVolume`, `killVolume`, `countdownVolume`), que se multiplica por `volume`.
