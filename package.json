@@ -2,6 +2,7 @@
   "name": "finals-aim",
   "version": "0.1.0",
   "private": true,
+  "license": "CC-BY-NC-SA-4.0",
   "type": "module",
   "description": "Aim trainer en three.js enfocado al ADS de The Finals",
   "scripts": {
