@@ -1,7 +1,7 @@
 // Rutinas: listas de escenarios (modo Escenarios) que se juegan seguidos, con
 // un resumen al final. Hay rutinas predefinidas (textos en i18n:
 // `routine.<id>` y `routine.<id>.desc`) y rutinas propias guardadas aquí.
-import { SCENARIOS } from './scenarios.js';
+import { SCENARIOS } from './scenarios/index.js';
 import { t } from './i18n.js';
 
 const STORAGE_KEY = 'finals-aim.routines.v1';

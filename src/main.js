@@ -10,7 +10,7 @@ import { Sfx } from './audio.js';
 import { Impacts } from './impacts.js';
 import { Viewmodel } from './viewmodel.js';
 import { Tracers } from './tracers.js';
-import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios.js';
+import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios/index.js';
 import { addEntry } from './history.js';
 import { AimAnalysis } from './analysis.js';
 import { routineName } from './routines.js';

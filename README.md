@@ -123,7 +123,7 @@ To update three: read the changelog, pick a version older than 14 days, run `npm
 
 ## Contributing
 
-Issues and pull requests are welcome, especially measurements from the game (weapon stats, hitboxes, the sniper FOV). Please keep the constraints above in mind: no new dependencies, and no inline scripts or styles (the CSP blocks them). [`CLAUDE.md`](CLAUDE.md) describes the architecture in detail (in Spanish). Code comments and commit messages are in Spanish; UI strings live in `src/lang/` and must be added to every language.
+Issues and pull requests are welcome, especially new scenarios and measurements from the game (weapon stats, hitboxes, the sniper FOV). Each scenario is a single file in `src/scenarios/`. [`CONTRIBUTING.md`](CONTRIBUTING.md) explains how to add one and lists the project's constraints: no new dependencies, and no inline scripts or styles (the CSP blocks them).
 
 By submitting a pull request, you agree that your contribution is licensed under the same terms as the project (see below).
 
