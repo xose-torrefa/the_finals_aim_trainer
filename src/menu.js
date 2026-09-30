@@ -1,7 +1,7 @@
 import { h } from './dom.js';
 import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, sanitizeSettings, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { WEAPONS, LEVELS, resolveWeapon, weaponSight, weaponName, sightName } from './weapons.js';
-import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
+import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios/index.js';
 import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
 import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
 import { analysisView } from './analysis.js';

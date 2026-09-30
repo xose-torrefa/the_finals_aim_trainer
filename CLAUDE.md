@@ -71,7 +71,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `tracers.js`: las trazadoras salen de donde se ve la boca del cañón (`muzzleNdc` proyectado a la cámara del mundo) y van al punto de impacto. Son solo visuales.
 
 **Modos Escenarios / Sandbox**
-- El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
+- El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios/index.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
 - Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, mirillas, color, cuenta atrás…) y valen en ambos modos.
 - **Mirillas (Ajustes → Armas):** cada arma tiene su ajuste `sightKey(arma)` (`sightAr`, `sightSmg`…) con una de sus `sights`; por defecto, la primera. `weaponSight(s, arma)` / `resolveWeapon(s)` dan la mira y su nivel, y de ahí sale el FOV de ADS, también en Escenarios (la mira no va en `RANKED_BASE` ni en los `fixed`). `settings.scenario` es el escenario elegido en Sandbox.
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. También calcula la comparación con las partidas anteriores (`compareToPrevious`: récord y media de las últimas 10), la tendencia (`trend`) y la constancia (`activity`). **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
@@ -95,8 +95,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `sanitizeSettings()` (lo usan `loadSettings()` y la copia de seguridad) solo acepta valores del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
-**`scenarios.js`: escenarios**
-- Registro `SCENARIOS`: `{ group, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group` (un id: `humanoids`, `situations`, `spheres`). Nombre y descripción van en los diccionarios (`scenarioName(key)`, `scenarioDesc(key)`, `groupName(group)`).
+**`scenarios/`: escenarios (un archivo por escenario)**
+- Cada escenario es un archivo que exporta por defecto su definición: `{ key, group, spheres?, version, fixed, distanceLabel?, score, create(ctx) }`. `score` es `'percent'` o `'kills'`, e `index.js` le añade `formatScore`/`formatTick` (`SCORE_FORMATS`). La guía para contribuidores está en `CONTRIBUTING.md` (en inglés); si cambia cómo se añade un escenario, actualízala también.
+- `index.js` importa todos los escenarios. `LIST` es el orden del menú, y el archivo también tiene `RANKED_BASE`, `scenarioSettings`, `fixedParts` y los nombres. Al cargar valida cada definición con `check()`: si una clave está repetida o si `group`, `version`, `score` o `create` no son válidos, lanza un error; `fixed` pasa por `sanitizeSettings()`, y si faltan los textos en `en.js`, avisa con un warning. El registro `SCENARIOS` (clave → definición) es la API que usan `main.js`, `menu.js` y `routines.js`. El menú los agrupa por `group` (`humanoids`, `situations`, `spheres`). Nombre y descripción van en los diccionarios (`scenarioName(key)`, `scenarioDesc(key)`, `groupName(group)`).
+- **La `key` no se cambia nunca**: la usan el historial y las rutinas guardadas. El archivo se llama como la clave, salvo que la clave lleve palabras que bloquean los adblock (`track` → `follow`: `tracking` está en `follow.js`, `airtrack` en `airfollow.js`…).
+- `base.js` tiene `createStats`, utilidades (`spawnPoint`, `aimPoint`, `rand`, `pct`…) y las clases que comparten varios escenarios. Una clase que solo usa un escenario va en su archivo (`PeekScenario` en `peek.js`, `GridshotScenario` en `gridshot.js`…).
 - Una instancia de escenario implementa:
   - `targets` y `hitMeshes`.
   - `colliders` (geometría propia que para las balas, p. ej. las coberturas de Peeks) y `requireMove` (el tiempo en objetivo solo cuenta con WASD pulsado). Los pone la clase base vacíos/`false`.
@@ -104,11 +107,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `onHit(target, part, { dealt, killed })`.
   - `live(stats)` (texto ya traducido), `score(stats)`, `summary(stats)` (pares `[clave de texto, valor]`, se traducen al mostrarlos).
   - `dispose()`.
-- Clases base:
+- Clases base (`base.js`):
   - `TrackingScenario` recibe un `makeTarget(scenario)`.
   - `EliminationScenario` gestiona respawns con `pending`.
   - `SphereFlickScenario` es la base de Gridshot y Precisión.
-  - `MoveTrackScenario` (tracking con `requireMove`) y `PeekScenario` (coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest).
+- Clases propias: `MoveTrackScenario` (`movefollow.js`, tracking con `requireMove`) y `PeekScenario` (`peek.js`, coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest).
 
 **`target.js`: objetivos**
 - `Target` (humanoide) y `SphereTarget` comparten interfaz: `hitMeshes`, `update(dt, camera)`, `applyDamage(amount, now)`, `dispose()`, `spawnTime`, `firstHitTime`.
