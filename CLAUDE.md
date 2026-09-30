@@ -65,12 +65,13 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `castRay()` lanza el rayo contra `world.colliders` + `scenario.colliders` + `scenario.hitMeshes`.
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
-- `viewmodel.js` es el arma en primera persona: escena y cámara propias (FOV `viewmodelFov`), modelos hechos con primitivas según `weapon.key` y la mira. En ADS pone el eje de la mira (`y`, `z`) en el centro de la pantalla; los visores (`scoped`) ocultan el arma con el ADS completo. El retroceso es solo visual. También dibuja el fogonazo.
+- `viewmodel.js` es el arma en primera persona: escena y cámara propias (FOV `viewmodelFov`), modelos hechos con primitivas según `weapon.key`, la mira (`iron`, `reddot`, `scope`) y su nivel (largo del visor). En ADS pone el eje de la mira (`y`, `z`) en el centro de la pantalla; los visores (`scoped`) ocultan el arma con el ADS completo. El retroceso es solo visual. También dibuja el fogonazo.
 - `tracers.js`: las trazadoras salen de donde se ve la boca del cañón (`muzzleNdc` proyectado a la cámara del mundo) y van al punto de impacto. Son solo visuales.
 
 **Modos Escenarios / Sandbox**
 - El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
-- Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, color, cuenta atrás…) y valen en ambos modos. `settings.scenario` es el escenario elegido en Sandbox.
+- Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, mirillas, color, cuenta atrás…) y valen en ambos modos.
+- **Mirillas (Ajustes → Armas):** cada arma tiene su ajuste `sightKey(arma)` (`sightAr`, `sightSmg`…) con una de sus `sights`; por defecto, la primera. `weaponSight(s, arma)` / `resolveWeapon(s)` dan la mira y su nivel, y de ahí sale el FOV de ADS, también en Escenarios (la mira no va en `RANKED_BASE` ni en los `fixed`). `settings.scenario` es el escenario elegido en Sandbox.
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. También calcula la comparación con las partidas anteriores (`compareToPrevious`: récord y media de las últimas 10), la tendencia (`trend`) y la constancia (`activity`). **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
 **`analysis.js`: análisis de la puntería**
@@ -86,7 +87,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Exporta un JSON `{ app: 'finals-aim', version, exported, settings, history, routines }`. Las rutinas se fusionan por `id`. Al importar, `mergeHistory()` añade las partidas sin duplicar (misma `t` en el mismo `escenario@versión`) y solo con campos numéricos conocidos; los ajustes pasan por `sanitizeSettings()` y se aplican con `onReplace` (sin sonidos de prueba, reconstruyendo el menú).
 
 **`settings.js`: ajustes**
-- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`; tipos `select`, `checkbox`, `color`, `number` y `key`). El esquema no lleva textos: `section`/`tab` son ids (`section.<id>`), la etiqueta es `field.<text ?? key>` y la pista, si existe en el diccionario, `field.<…>.hint`; las opciones son `[valor, clave de texto]`. Añadir un ajuste = poner su valor por defecto + su campo en el esquema + sus textos en todos los idiomas.
+- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`; tipos `select`, `checkbox`, `color`, `number` y `key`). El esquema no lleva textos: `section`/`tab` son ids (`section.<id>`, con descripción opcional `section.<id>.hint`), la etiqueta es `field.<text ?? key>` (o la clave completa `label`) y la pista, si existe en el diccionario, `<etiqueta>.hint`; las opciones son `[valor, clave de texto]`. Añadir un ajuste = poner su valor por defecto + su campo en el esquema + sus textos en todos los idiomas.
 - La mira tiene dos perfiles con los mismos campos (`CROSSHAIR_KEYS`) y prefijos `crosshair*` / `adsCrosshair*`. `adsCrosshair` decide qué se ve en ADS: `dot` (hipfire sin líneas), `same` o `custom`. `crosshair.js` la dibuja con divs (capa de contorno + capa de relleno) y se usa tanto en el HUD como en la vista previa de Ajustes.
 - **Código de mira** (`crosshair-code.js`, tarjeta en Ajustes → Mira): `FA1;<modo ADS D/S/C>;<12 campos de hipfire>[;<12 de ADS si es C>]`, en el orden fijo de `CODE_FIELDS` (opacidades en % entero). Al importar, los números se ajustan al rango del esquema y se puede deshacer. **Si cambian los campos de la mira, crea un formato nuevo (`FA2`) y sigue leyendo el `FA1`**: los códigos ya compartidos tienen que seguir funcionando.
 - `sanitizeSettings()` (lo usan `loadSettings()` y la copia de seguridad) solo acepta valores del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
@@ -135,7 +136,8 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 **FOV**
 - **El FOV del juego es vertical.** El usuario lo verificó midiendo la distancia de ratón de un borde de la pantalla al otro, en el juego y en el trainer.
-- **FOV de ADS = FOV vertical de hipfire × nivel de la mira:** Low 1× = 0,78, Medium 1,25× = 0,68, High 1,5× = 0,58 (niveles del parche 7.0, porcentajes medidos por la comunidad). Depende de la mira, no del arma (`SIGHTS` en `weapons.js`).
+- **FOV de ADS = FOV vertical de hipfire × nivel de la mira:** Low 1× = 0,78, Medium 1,25× = 0,68, High 1,5× = 0,58 (niveles del parche 7.0, porcentajes medidos por la comunidad; `LEVELS` en `weapons.js`).
+- **El nivel sale de la combinación arma + mira** (`sights` de cada arma en `WEAPONS`), datos del usuario: miras de hierro, red dots y ADS con zoom sin mira = 78 %, salvo el red dot del revólver = 68 %; visor del XP-54 = 68 %; visor del FAMAS / LH1 / Pike y arco = 58 %.
 
 **Objetivos y armas**
 - **Vida por clase:** Light 150, Medium 250, Heavy 350.

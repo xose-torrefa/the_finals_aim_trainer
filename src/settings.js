@@ -1,4 +1,4 @@
-import { WEAPONS, SIGHTS } from './weapons.js';
+import { WEAPONS, sightKey } from './weapons.js';
 import { SHOT_SOUNDS, HIT_SOUNDS } from './audio.js';
 import { LANGUAGES } from './i18n.js';
 
@@ -50,8 +50,11 @@ export const DEFAULTS = {
   fov: 100,
   fovType: 'v', // The Finals usa FOV vertical (verificado midiendo en el juego)
   adsMode: 'hold',
-  sight: 'weapon',
   adsTimeOverride: 0,
+
+  // Armas: mira elegida para cada una (`sightAr`, `sightSmg`…). Decide el FOV
+  // de ADS en ambos modos. Por defecto, la primera de `sights` (la del arma).
+  ...Object.fromEntries(Object.entries(WEAPONS).map(([k, w]) => [sightKey(k), Object.keys(w.sights)[0]])),
 
   // Sesión (Sandbox). `scenario` es el escenario elegido en Sandbox; en
   // Escenarios se juega el de la ficha abierta.
@@ -130,7 +133,7 @@ const opts = (prefix, values) => values.map((v) => [v, `${prefix}.${v}`]);
 // 'sandbox' (solo en Sandbox; en Escenarios lo fija cada escenario). Las
 // secciones con el mismo `tab` se muestran juntas en la página de Ajustes.
 // Los textos salen de i18n: `section.<id>` para secciones y pestañas,
-// `field.<text ?? key>` y `field.<…>.hint` para los campos, y las opciones son
+// `field.<text ?? key>` (o `label`) y `<…>.hint` para los campos, y las opciones son
 // pares `[valor, clave de texto]`.
 export const SETTINGS_SCHEMA = [
   {
@@ -156,6 +159,14 @@ export const SETTINGS_SCHEMA = [
       { key: 'fovType', type: 'select', options: opts('fovType', ['v', 'h16:9', 'hActual']) },
       { key: 'adsMode', type: 'select', options: opts('adsMode', ['hold', 'toggle']) },
     ],
+  },
+  {
+    section: 'loadout',
+    page: 'settings',
+    // `label`: clave de texto completa en vez de `field.<key>`
+    fields: Object.entries(WEAPONS).map(([k, w]) => ({
+      key: sightKey(k), label: `weapon.${k}`, type: 'select', options: opts('sight', Object.keys(w.sights)),
+    })),
   },
   {
     section: 'game',
@@ -218,7 +229,6 @@ export const SETTINGS_SCHEMA = [
     page: 'sandbox',
     fields: [
       { key: 'weapon', type: 'select', options: opts('weapon', Object.keys(WEAPONS)) },
-      { key: 'sight', type: 'select', options: opts('sight', ['weapon', ...Object.keys(SIGHTS)]) },
       { key: 'adsTimeOverride', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },
@@ -245,7 +255,7 @@ export const SETTINGS_SCHEMA = [
 ];
 
 /** Clave de texto de un campo del esquema (su pista es la misma + '.hint'). */
-export const fieldText = (f) => `field.${f.text ?? f.key}`;
+export const fieldText = (f) => f.label ?? `field.${f.text ?? f.key}`;
 
 /** Nombre legible de un `KeyboardEvent.code` ('KeyR' → 'R'). */
 export function keyLabel(code) {

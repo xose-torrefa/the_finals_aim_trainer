@@ -4,7 +4,9 @@ import { t } from './i18n.js';
 // Niveles de aumento de mira de The Finals (parche 7.0: Low 1×, Medium 1.25×,
 // High 1.5×). El FOV de ADS es un % del FOV vertical de hipfire, según las
 // mediciones de la comunidad (r/thefinals, "Ultimate Guide to FOV...").
-export const SIGHTS = {
+// El nivel no lo da la mira sola sino la combinación arma + mira: el red dot es
+// Low en todas las armas salvo en el revólver (Medium). Ver `sights` de cada arma.
+export const LEVELS = {
   low: { fovMult: 0.78 },
   medium: { fovMult: 0.68 },
   high: { fovMult: 0.58 },
@@ -22,38 +24,43 @@ export const sightName = named('sight');
 
 // Arquetipos de arma. Los números son APROXIMADOS (inspirados en The Finals) y
 // están pensados para ir ajustándose durante el desarrollo.
-//  sight:      mira por defecto (ver SIGHTS)
+//  sights:     miras que admite → nivel de aumento (ver LEVELS). La primera es
+//              la que lleva por defecto; cada jugador elige la suya en Ajustes
+//              → Armas (`sightKey(arma)`), y esa decide el FOV de ADS.
 //  adsTime:    segundos para entrar en ADS completo
 //  falloff:    [inicio m, fin m, multiplicador mínimo]
 export const WEAPONS = {
   ar: {
     auto: true, rpm: 600, damage: 20, headMult: 1.5,
-    sight: 'low', adsTime: 0.22,
+    sights: { iron: 'low', reddot: 'low' }, adsTime: 0.22,
     falloff: [30, 50, 0.67],
   },
   smg: {
     auto: true, rpm: 900, damage: 13, headMult: 1.5,
-    sight: 'low', adsTime: 0.16,
+    // Visor: el del XP-54 (Medium, 68 %)
+    sights: { iron: 'low', reddot: 'low', scope: 'medium' }, adsTime: 0.16,
     falloff: [18, 30, 0.6],
   },
   lmg: {
     auto: true, rpm: 550, damage: 23, headMult: 1.5,
-    sight: 'low', adsTime: 0.35,
+    sights: { iron: 'low', reddot: 'low' }, adsTime: 0.35,
     falloff: [35, 55, 0.7],
   },
   dmr: {
     auto: false, rpm: 300, damage: 45, headMult: 1.75,
-    sight: 'high', adsTime: 0.25,
+    // Visor: el del FAMAS / LH1 / Pike (High, 58 %)
+    sights: { iron: 'low', reddot: 'low', scope: 'high' }, adsTime: 0.25,
     falloff: [45, 70, 0.8],
   },
   revolver: {
     auto: false, rpm: 180, damage: 55, headMult: 1.5,
-    sight: 'low', adsTime: 0.15,
+    // El red dot del revólver es Medium (68 %), no Low como en el resto
+    sights: { iron: 'low', reddot: 'medium' }, adsTime: 0.15,
     falloff: [25, 40, 0.6],
   },
   sniper: {
     auto: false, rpm: 60, damage: 118, headMult: 1.5,
-    sight: 'sniper', adsTime: 0.4,
+    sights: { scope: 'sniper' }, adsTime: 0.4,
     falloff: [80, 120, 0.9],
   },
 };
@@ -72,16 +79,27 @@ export function idealTTK(w, hp, dist) {
   return ((shots - 1) * 60) / w.rpm;
 }
 
+/** Clave del ajuste con la mira elegida para un arma ('ar' → 'sightAr'). */
+export const sightKey = (weapon) => `sight${weapon[0].toUpperCase()}${weapon.slice(1)}`;
+
+/** Mira y nivel de aumento que lleva un arma según los ajustes. */
+export function weaponSight(s, weapon) {
+  const { sights } = WEAPONS[weapon];
+  const sight = Object.hasOwn(sights, s[sightKey(weapon)]) ? s[sightKey(weapon)] : Object.keys(sights)[0];
+  return { sight, level: sights[sight] };
+}
+
 /** Arma efectiva según los ajustes: mira elegida y tiempo de ADS forzado. */
 export function resolveWeapon(s) {
   const base = WEAPONS[s.weapon];
-  const sight = s.sight === 'weapon' ? base.sight : s.sight;
+  const { sight, level } = weaponSight(s, s.weapon);
   return {
     ...base,
     key: s.weapon,
     sight,
-    fovMult: SIGHTS[sight].fovMult,
-    sniper: SIGHTS[sight].sniper === true,
+    level,
+    fovMult: LEVELS[level].fovMult,
+    sniper: LEVELS[level].sniper === true,
     adsTime: s.adsTimeOverride > 0 ? s.adsTimeOverride / 1000 : base.adsTime,
   };
 }

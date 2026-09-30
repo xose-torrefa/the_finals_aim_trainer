@@ -97,18 +97,43 @@ function reflex(g, top, z, w, hgt, base) {
   return y;
 }
 
+/** Miras de hierro de fusil: diópter atrás y guion con orejetas delante. */
+function ironRifle(g, top, len) {
+  const y = top + 0.022;
+  const rear = -0.03;
+  const front = -len * 0.95;
+  box(g, MAT.metal, 0.02, y - top - 0.006, 0.012, 0, (top + y - 0.006) / 2, rear);
+  add(g, RING, MAT.metal, [0.007, 0.007, 0.03], [0, y, rear]);
+  box(g, MAT.metal, 0.024, 0.008, 0.02, 0, top + 0.004, front); // base
+  box(g, MAT.accent, 0.003, y - top - 0.008, 0.003, 0, (top + 0.008 + y) / 2, front); // guion
+  for (const x of [-0.01, 0.01]) box(g, MAT.metal, 0.003, y - top - 0.004, 0.012, x, (top + 0.008 + y + 0.004) / 2, front); // orejetas
+  return { y, z: rear, eye: 0.2 };
+}
+
+/** Miras de hierro de revólver: muesca en el armazón (por encima del martillo) y guion sobre el cañón. */
+function ironRevolver(g, top) {
+  const hgt = 0.016;
+  const y = top + hgt;
+  const barrelTop = 0.021;
+  for (const x of [-0.0075, 0.0075]) box(g, MAT.metal, 0.009, hgt, 0.008, x, top + hgt / 2, -0.006);
+  box(g, MAT.accent, 0.003, y - barrelTop, 0.016, 0, (barrelTop + y) / 2, -0.21); // guion
+  return { y, z: -0.006, eye: 0.24 };
+}
+
 /**
  * Añade la mira encima del arma. Devuelve el eje de la mira (y, z de su
  * centro), la distancia del ojo en ADS y si es un visor (se oculta en ADS).
+ * @param sight 'iron' | 'reddot' | 'scope'; el visor es más largo cuanto más aumenta (`level`)
  */
-function buildSight(g, kind, top, len) {
+function buildSight(g, sight, level, top, len, pistol) {
+  if (sight === 'iron') return pistol ? ironRevolver(g, top) : ironRifle(g, top, len);
   const z = -len * 0.4;
-  if (kind === 'pistol') {
+  if (sight === 'reddot' && pistol) {
     // Reflex de pistola sobre una base alta, para que el tambor quede bien por
     // debajo del punto de mira
     return { y: reflex(g, top, z, 0.042, 0.032, [0.026, 0.02, 0.034]), z, eye: 0.2 };
   }
-  if (kind === 'low') {
+  if (sight === 'reddot') {
     // Red dot: marco circular con cristal
     const r = 0.017;
     box(g, MAT.metal, 0.03, 0.012, 0.04, 0, top + 0.006, z);
@@ -117,14 +142,9 @@ function buildSight(g, kind, top, len) {
     add(g, DISC, MAT.glass, [r, r, 1], [0, y, z]);
     return { y, z, eye: 0.22 };
   }
-  if (kind === 'medium') {
-    // Reflector: ventana rectangular grande
-    return { y: reflex(g, top, z, 0.05, 0.04, [0.036, 0.01, 0.05]), z, eye: 0.22 };
-  }
   // Visor: tubo abierto con campanas en los extremos
-  const sniper = kind === 'sniper';
-  const r = sniper ? 0.018 : 0.016;
-  const tl = sniper ? 0.2 : 0.13;
+  const r = level === 'sniper' ? 0.018 : 0.016;
+  const tl = { medium: 0.1, high: 0.13, sniper: 0.2 }[level] ?? 0.13;
   const y = top + 0.012 + r;
   box(g, MAT.metal, 0.012, 0.014, 0.014, 0, top + 0.007, z + tl * 0.3);
   box(g, MAT.metal, 0.012, 0.014, 0.014, 0, top + 0.007, z - tl * 0.3);
@@ -134,18 +154,19 @@ function buildSight(g, kind, top, len) {
   return { y, z: z + tl / 2, eye: 0.08, scoped: true };
 }
 
-function buildModel(weaponKey, sight) {
+function buildModel(weaponKey, sight, level) {
   const parts = new THREE.Group();
+  const pistol = weaponKey === 'revolver';
   let info;
-  if (weaponKey === 'revolver') {
+  if (pistol) {
     const r = buildRevolver(parts);
-    info = { ...r, ...buildSight(parts, sight === 'low' ? 'pistol' : sight, r.top, 0.09) };
+    info = { ...r, ...buildSight(parts, sight, level, r.top, 0.09, true) };
   } else {
     const p = RIFLES[weaponKey] ?? RIFLES.ar;
     const r = buildRifle(parts, p);
-    info = { ...r, kick: p.kick, ...buildSight(parts, sight, r.top, p.len) };
+    info = { ...r, kick: p.kick, ...buildSight(parts, sight, level, r.top, p.len, false) };
   }
-  return { parts, ...info, pistol: weaponKey === 'revolver' };
+  return { parts, ...info, pistol };
 }
 
 function flashTexture() {
@@ -224,12 +245,12 @@ export class Viewmodel {
   }
 
   /** Construye el modelo del arma (solo si cambia el arma o la mira). */
-  setWeapon(weaponKey, sight) {
-    const key = `${weaponKey}:${sight}`;
+  setWeapon(weaponKey, sight, level) {
+    const key = `${weaponKey}:${sight}:${level}`;
     if (key === this.key) return;
     this.key = key;
     if (this.current) this.model.remove(this.current.parts);
-    this.current = buildModel(weaponKey, sight);
+    this.current = buildModel(weaponKey, sight, level);
     this.model.add(this.current.parts);
     this.muzzle.position.copy(this.current.muzzle);
     this.reset();

@@ -1,6 +1,6 @@
 import * as THREE from '../lib/three/three.module.js';
 import { Target, SphereTarget, pickClass, CLASSES } from './target.js';
-import { idealTTK, weaponName, sightName } from './weapons.js';
+import { idealTTK, weaponName } from './weapons.js';
 import { DEG } from './settings.js';
 import { t } from './i18n.js';
 
@@ -498,8 +498,8 @@ const killsTick = (v) => String(v);
 // Configuración fija del modo Escenarios (con registro). Cada escenario la
 // completa con su `fixed`. Si cambias la configuración efectiva de un escenario,
 // sube su `version`: el historial se separa por versión.
+// La mira no está aquí: es de cada jugador (Ajustes → Armas), como la sens o el FOV.
 export const RANKED_BASE = {
-  sight: 'weapon',
   adsTimeOverride: 0,
   targetClass: 'medium',
   targetDistance: 20,
@@ -521,7 +521,6 @@ export function fixedParts(key) {
   const def = SCENARIOS[key];
   const s = { ...RANKED_BASE, ...def.fixed };
   const parts = [weaponName(s.weapon, true)];
-  if (s.sight !== 'weapon') parts.push(t('chip.sight', { name: sightName(s.sight, true) }));
   if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
   if (s.allowMove) parts.push(t('chip.move'));
   parts.push(`${s.duration} s`);
@@ -640,7 +639,7 @@ export const SCENARIOS = {
     group: 'spheres',
     spheres: true,
     version: 1,
-    fixed: { weapon: 'dmr', sight: 'low' },
+    fixed: { weapon: 'dmr' },
     formatScore: kills,
     formatTick: killsTick,
     create: (ctx) => new GridshotScenario(ctx),
@@ -649,7 +648,7 @@ export const SCENARIOS = {
     group: 'spheres',
     spheres: true,
     version: 1,
-    fixed: { weapon: 'dmr', sight: 'low' },
+    fixed: { weapon: 'dmr' },
     formatScore: kills,
     formatTick: killsTick,
     create: (ctx) => new PrecisionScenario(ctx),

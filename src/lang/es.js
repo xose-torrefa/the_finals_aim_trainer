@@ -25,7 +25,7 @@ export default {
   'overlay.restart': 'Reiniciar ({key})',
 
   // Escenarios
-  'scenarios.lead': 'Cada escenario tiene arma, objetivos y duración fijos para que las puntuaciones sean comparables. Sens, FOV y ADS son siempre los tuyos. Cada partida se guarda en tu historial.',
+  'scenarios.lead': 'Cada escenario tiene arma, objetivos y duración fijos para que las puntuaciones sean comparables. Sens, FOV, ADS y mirillas son siempre los tuyos. Cada partida se guarda en tu historial.',
   'scenarios.back': '← Escenarios',
   'scenarios.empty': 'Aún no has jugado este escenario. Tus partidas aparecerán aquí.',
   'group.humanoids': 'Humanoides',
@@ -55,7 +55,6 @@ export default {
   'scenario.peek.desc': 'Un enemigo asoma por detrás de tres coberturas, hace ADAD y vuelve a esconderse, sin recuperar vida. Pre-apunta a los bordes y castiga el peek.',
   'scenario.movetrack': 'Tracking en movimiento',
   'scenario.movetrack.desc': 'El tiempo en objetivo solo cuenta mientras te mueves con WASD. Muévete de lado sin perderlo de la mira.',
-  'chip.sight': 'Mira {name}',
   'chip.move': 'Movimiento WASD',
 
   // Estadísticas e historial
@@ -136,7 +135,7 @@ export default {
   'sandbox.weapon': 'Arma efectiva',
   'sandbox.play': 'Jugar en Sandbox',
   'info.weapon': 'Arma',
-  'info.sight': 'Mira',
+  'info.sight': 'Mirilla',
   'info.adsTime': 'Tiempo ADS',
   'info.fireRate': 'Cadencia',
 
@@ -147,11 +146,9 @@ export default {
   'weapon.dmr': 'Tirador semiautomático (tipo LH1)',
   'weapon.revolver': 'Revólver (tipo R.357)',
   'weapon.sniper': 'Francotirador (tipo SR-84)',
-  'sight.weapon': 'La del arma',
-  'sight.low': 'Low 1× (hierro, red dots, holográfico)',
-  'sight.medium': 'Medium 1.25× (Reflector Sight)',
-  'sight.high': 'High 1.5× (miras de aumento, arco)',
-  'sight.sniper': 'Francotirador (FOV sin verificar)',
+  'sight.iron': 'Miras de hierro',
+  'sight.reddot': 'Red dot',
+  'sight.scope': 'Visor',
 
   // Página de ajustes
   'settings.lead': 'Tu configuración personal. Se aplica en Escenarios y en Sandbox, y al momento si hay una partida en pausa.',
@@ -170,7 +167,7 @@ export default {
   'chCode.invalid': 'Ese código de mira no es válido.',
   'chCode.undo': 'Deshacer',
   'chCode.undone': 'Has recuperado tu mira anterior.',
-  'settings.adsBySight': 'ADS por nivel de mira',
+  'settings.adsByWeapon': 'ADS por arma',
   'settings.mdvTitle': 'Sens de ADS que daría 0% monitor distance',
   'settings.pressKey': 'Pulsa una tecla…',
   'settings.wasdReserved': 'WASD es para moverse',
@@ -209,6 +206,8 @@ export default {
   // Secciones del esquema de ajustes
   'section.sensitivity': 'Sensibilidad',
   'section.fovAds': 'FOV y ADS',
+  'section.loadout': 'Armas',
+  'section.loadout.hint': 'Elige la mirilla que usas en cada arma, como en el juego. La mirilla decide el FOV de ADS (un % del FOV vertical de hipfire): miras de hierro y red dots 78 % (el red dot del revólver, 68 %), visor del subfusil (XP-54) 68 %, visor del tirador (FAMAS/LH1/Pike) 58 %. El FOV del visor del francotirador no está verificado. Vale en Escenarios y en Sandbox.',
   'section.game': 'Partida',
   'section.crosshair': 'Mira',
   'section.crosshairHip': 'Mira en hipfire',
@@ -299,7 +298,6 @@ export default {
   'sound.tick': 'Tic limpio',
   'sound.ding': 'Campana',
   'field.weapon': 'Arma',
-  'field.sight': 'Mira',
   'field.adsTimeOverride': 'Tiempo ADS ms (0 = arma)',
   'field.targetClass': 'Clase',
   'targetClass.light': 'Light (150 HP)',

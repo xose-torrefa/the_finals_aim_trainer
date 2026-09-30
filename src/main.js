@@ -128,7 +128,7 @@ function applyToSession() {
   // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
   session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
   session.ctx.weapon = resolveWeapon(session.ctx.settings);
-  viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight);
+  viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight, session.ctx.weapon.level);
 }
 
 // ---- Sesión ----
@@ -151,7 +151,7 @@ function startSession(key, ranked) {
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
   session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player) };
   session.scenario = session.def.create(ctx);
-  viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight);
+  viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight, ctx.weapon.level);
   viewmodel.reset();
   lastPlayed = { key, ranked };
   adsT = 0;

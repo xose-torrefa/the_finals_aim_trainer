@@ -26,7 +26,7 @@ export default {
   'overlay.restart': 'Restart ({key})',
 
   // Escenarios
-  'scenarios.lead': 'Each scenario has a fixed weapon, targets and duration so scores are comparable. Sensitivity, FOV and ADS are always yours. Every run is saved to your history.',
+  'scenarios.lead': 'Each scenario has a fixed weapon, targets and duration so scores are comparable. Sensitivity, FOV, ADS and sights are always yours. Every run is saved to your history.',
   'scenarios.back': '← Scenarios',
   'scenarios.empty': "You haven't played this scenario yet. Your runs will show up here.",
   'group.humanoids': 'Humanoids',
@@ -56,7 +56,6 @@ export default {
   'scenario.peek.desc': 'An enemy peeks out from behind three covers, jiggles and hides again, keeping its health. Pre-aim the edges and punish the peek.',
   'scenario.movetrack': 'Tracking on the move',
   'scenario.movetrack.desc': 'Time on target only counts while you move with WASD. Strafe and keep your crosshair on it.',
-  'chip.sight': '{name} sight',
   'chip.move': 'WASD movement',
 
   // Estadísticas e historial
@@ -148,11 +147,9 @@ export default {
   'weapon.dmr': 'Semi-auto marksman rifle (LH1 type)',
   'weapon.revolver': 'Revolver (R.357 type)',
   'weapon.sniper': 'Sniper rifle (SR-84 type)',
-  'sight.weapon': "Weapon's default",
-  'sight.low': 'Low 1× (iron sights, red dots, holographic)',
-  'sight.medium': 'Medium 1.25× (Reflector Sight)',
-  'sight.high': 'High 1.5× (magnified scopes, bow)',
-  'sight.sniper': 'Sniper (FOV unverified)',
+  'sight.iron': 'Iron sights',
+  'sight.reddot': 'Red dot',
+  'sight.scope': 'Scope',
 
   // Página de ajustes
   'settings.lead': 'Your personal setup. It applies in Scenarios and Sandbox, and immediately if a game is paused.',
@@ -171,7 +168,7 @@ export default {
   'chCode.invalid': "That isn't a valid crosshair code.",
   'chCode.undo': 'Undo',
   'chCode.undone': 'Your previous crosshair is back.',
-  'settings.adsBySight': 'ADS by sight level',
+  'settings.adsByWeapon': 'ADS by weapon',
   'settings.mdvTitle': 'ADS sens that would give 0% monitor distance',
   'settings.pressKey': 'Press a key…',
   'settings.wasdReserved': 'WASD is for movement',
@@ -210,6 +207,8 @@ export default {
   // Secciones del esquema de ajustes
   'section.sensitivity': 'Sensitivity',
   'section.fovAds': 'FOV and ADS',
+  'section.loadout': 'Weapons',
+  'section.loadout.hint': "Pick the sight you use on each weapon, like in the game. The sight sets the ADS FOV (a % of hipfire vertical FOV): iron sights and red dots 78% (the revolver's red dot 68%), SMG scope (XP-54) 68%, marksman scope (FAMAS/LH1/Pike) 58%. The sniper scope FOV is not verified. Applies in Scenarios and Sandbox.",
   'section.game': 'Game',
   'section.crosshair': 'Crosshair',
   'section.crosshairHip': 'Hipfire crosshair',
@@ -300,7 +299,6 @@ export default {
   'sound.tick': 'Clean tick',
   'sound.ding': 'Bell',
   'field.weapon': 'Weapon',
-  'field.sight': 'Sight',
   'field.adsTimeOverride': 'ADS time ms (0 = weapon)',
   'field.targetClass': 'Class',
   'targetClass.light': 'Light (150 HP)',

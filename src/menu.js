@@ -1,6 +1,6 @@
 import { h } from './dom.js';
 import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, sanitizeSettings, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
-import { SIGHTS, resolveWeapon, weaponName, sightName } from './weapons.js';
+import { WEAPONS, LEVELS, resolveWeapon, weaponSight, weaponName, sightName } from './weapons.js';
 import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
 import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
 import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
@@ -433,11 +433,13 @@ export class Menu {
     const aspect = window.innerWidth / window.innerHeight;
     const hipV = hipVFovDeg(s, aspect);
     const hipDpc = hipDegPerCount(s);
-    const sights = Object.entries(SIGHTS).map(([key, m]) => {
+    const weapons = Object.keys(WEAPONS).map((key) => {
+      const { sight, level } = weaponSight(s, key);
+      const m = LEVELS[level];
       const adsV = adsVFovDeg(hipV, m.fovMult);
       const dpc = hipDpc * sensFactor(s, 1, adsV, hipV, m.sniper === true);
       return h('tr', {},
-        h('td', {}, sightName(key, true)),
+        h('td', {}, weaponName(key, true), h('small', { class: 'muted' }, ` · ${sightName(sight, true)}`)),
         h('td', { class: 'num' }, `${adsV.toFixed(1)}°`),
         h('td', { class: 'num' }, cm360FromDegPerCount(dpc, s.dpi).toFixed(1)),
         h('td', { class: 'num' }, `${mdvZeroPct(hipV, adsV).toFixed(1)}%`));
@@ -447,10 +449,10 @@ export class Menu {
         ['cm/360 hipfire', cm360FromDegPerCount(hipDpc, s.dpi).toFixed(1)],
         ['FOV hipfire (H / V)', `${hFovFromV(hipV, aspect).toFixed(1)}° / ${hipV.toFixed(1)}°`],
       ]),
-      h('h3', {}, t('settings.adsBySight')),
+      h('h3', {}, t('settings.adsByWeapon')),
       h('table', { class: 'history compact' },
-        h('thead', {}, h('tr', {}, h('th', {}, t('info.sight')), h('th', { class: 'num' }, 'FOV V'), h('th', { class: 'num' }, 'cm/360'), h('th', { class: 'num', title: t('settings.mdvTitle') }, '0% MDV'))),
-        h('tbody', {}, sights)),
+        h('thead', {}, h('tr', {}, h('th', {}, t('info.weapon')), h('th', { class: 'num' }, 'FOV V'), h('th', { class: 'num' }, 'cm/360'), h('th', { class: 'num', title: t('settings.mdvTitle') }, '0% MDV'))),
+        h('tbody', {}, weapons)),
     ];
   }
 
@@ -578,7 +580,9 @@ export class Menu {
   /** Tarjetas de formulario de una página; con `only`, solo las de esa pestaña. */
   schemaCards(page, only = null) {
     return SETTINGS_SCHEMA.filter((g) => g.page === page && (!only || tabOf(g) === only))
-      .map((g) => card(t(`section.${g.section}`), h('div', { class: 'fields' }, g.fields.map((f) => this.buildField(f)))));
+      .map((g) => card(t(`section.${g.section}`),
+        hasText(`section.${g.section}.hint`) && h('p', { class: 'muted' }, t(`section.${g.section}.hint`)),
+        h('div', { class: 'fields' }, g.fields.map((f) => this.buildField(f)))));
   }
 
   /** Vuelca los valores actuales de settings en los controles del formulario. */
