@@ -535,6 +535,20 @@ export const scenarioDesc = (key) => t(`scenario.${key}.desc`);
 export const groupName = (group) => t(`group.${group}`);
 
 export const SCENARIOS = {
+  basictrack: {
+    group: 'humanoids',
+    version: 1,
+    fixed: { weapon: 'ar' },
+    formatScore: percent,
+    formatTick: percentTick,
+    create: (ctx) => new TrackingScenario(ctx, (sc) => {
+      // Para aprender: recorre el carril entero a velocidad constante y solo
+      // cambia de sentido en los extremos (unos 2 s hacia cada lado a 20 m)
+      const { player, settings } = ctx;
+      const t = sc.newTarget({ hp: Infinity, lane: Math.max(2.5, settings.targetDistance * 0.25), ai: { pingpong: true } });
+      t.place(spawnPoint(player, settings.targetDistance, 0), player.pos);
+    }),
+  },
   tracking: {
     group: 'humanoids',
     version: 1,

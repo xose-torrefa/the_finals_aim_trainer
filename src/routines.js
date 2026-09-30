@@ -10,7 +10,7 @@ export const MAX_NAME = 40;
 
 export const BUILTIN_ROUTINES = [
   { id: 'warmup', steps: ['tracking', 'flick', 'precision', 'switching', 'peek'] },
-  { id: 'tracking', steps: ['closetrack', 'tracking', 'aerial', 'range', 'airtrack', 'movetrack'] },
+  { id: 'tracking', steps: ['basictrack', 'closetrack', 'tracking', 'aerial', 'range', 'airtrack', 'movetrack'] },
   { id: 'flicks', steps: ['flick', 'precision', 'gridshot', 'switching', 'peek'] },
 ].map((r) => ({ ...r, builtin: true }));
 

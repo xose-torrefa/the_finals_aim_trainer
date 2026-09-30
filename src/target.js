@@ -33,9 +33,11 @@ const rand = (a, b) => a + Math.random() * (b - a);
 // `sweep`: en profundidad va de un extremo al otro en vez de cambiar al azar.
 // `padChance`/`padSpeed`: probabilidad en cada cambio de usar un jump pad y
 // velocidad vertical (m/s) con la que sale.
+// `pingpong`: recorre el carril de un extremo al otro a velocidad constante,
+// sin cambios de sentido al azar, saltos, dashes ni jump pads.
 const DEFAULT_AI = {
   changeMin: 0.25, changeMax: 1.1, flipChance: 0.75, jumpChance: 0.18, dashChance: null,
-  depth: 0, depthSpeed: 0.6, sweep: false, padChance: 0, padSpeed: 14,
+  depth: 0, depthSpeed: 0.6, sweep: false, padChance: 0, padSpeed: 14, pingpong: false,
 };
 
 export function pickClass(setting) {
@@ -153,7 +155,7 @@ export class Target {
   updateStrafe(dt) {
     const ai = this.ai;
     this.changeTimer -= dt;
-    if (this.changeTimer <= 0) {
+    if (this.changeTimer <= 0 && !ai.pingpong) {
       if (Math.random() < ai.flipChance) this.dir *= -1;
       this.changeTimer = rand(ai.changeMin, ai.changeMax);
       if (ai.depth > 0 && !ai.sweep) this.depthDir = Math.floor(Math.random() * 3) - 1;
