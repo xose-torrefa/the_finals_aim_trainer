@@ -75,6 +75,14 @@ export const DEFAULTS = {
   adsCrosshair: 'dot',
   ...prefixed('adsCrosshair', CROSSHAIR_ADS),
 
+  // Arma en pantalla y efectos
+  viewmodel: true,
+  viewmodelFov: 60,
+  viewmodelSway: true,
+  muzzleFlash: true,
+  tracers: true,
+  tracerColor: '#ffc860',
+
   // Vídeo
   showFps: true,
   renderScale: 1,
@@ -159,6 +167,18 @@ export const SETTINGS_SCHEMA = [
     fields: [
       { key: 'adsCrosshair', label: 'Al hacer ADS', type: 'select', options: [['dot', 'La de hipfire sin líneas'], ['same', 'La misma que en hipfire'], ['custom', 'Una distinta']], hint: 'Cambia gradualmente con el progreso del ADS.' },
       ...crosshairFields('adsCrosshair', (s) => s.adsCrosshair === 'custom'),
+    ],
+  },
+  {
+    section: 'Arma y efectos',
+    page: 'settings',
+    fields: [
+      { key: 'viewmodel', label: 'Mostrar el arma', type: 'checkbox', hint: 'Con visores (High y francotirador) se oculta al completar el ADS.' },
+      { key: 'viewmodelFov', label: 'FOV del arma', type: 'number', min: 40, max: 100, step: 1, showIf: (s) => s.viewmodel, hint: 'Solo cambia el tamaño del arma en pantalla, no el FOV de la vista.' },
+      { key: 'viewmodelSway', label: 'Inercia y balanceo del arma', type: 'checkbox', showIf: (s) => s.viewmodel },
+      { key: 'muzzleFlash', label: 'Fogonazo', type: 'checkbox' },
+      { key: 'tracers', label: 'Trazadoras', type: 'checkbox', hint: 'Solo visuales: la bala ya ha impactado en el centro de la mira.' },
+      { key: 'tracerColor', label: 'Color de las trazadoras', type: 'color', showIf: (s) => s.tracers },
     ],
   },
   {

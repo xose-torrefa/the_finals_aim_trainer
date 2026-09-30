@@ -73,6 +73,7 @@ export function resolveWeapon(s) {
   const sight = s.sight === 'weapon' ? base.sight : s.sight;
   return {
     ...base,
+    key: s.weapon,
     sight,
     fovMult: SIGHTS[sight].fovMult,
     sniper: SIGHTS[sight].sniper === true,

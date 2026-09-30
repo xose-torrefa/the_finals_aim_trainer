@@ -8,12 +8,15 @@ import { Menu } from './menu.js';
 import { Overlay } from './overlay.js';
 import { Sfx } from './audio.js';
 import { Impacts } from './impacts.js';
+import { Viewmodel } from './viewmodel.js';
+import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings } from './scenarios.js';
 import { addEntry } from './history.js';
 
 const EYE_HEIGHT = 1.7;
 const ARENA_RADIUS = 12;
 const ADS_MOVE_MULT = 0.6;
+const TRACER_START = 1; // m desde la cámara, en la dirección en que se ve la boca del cañón
 
 const settings = loadSettings();
 try {
@@ -22,12 +25,15 @@ try {
 
 // ---- Render ----
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.autoClear = false; // el arma se dibuja en una segunda pasada
 document.getElementById('app').append(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 600);
 camera.rotation.order = 'YXZ';
 const world = buildWorld(scene, renderer);
 const impacts = new Impacts(scene);
+const tracers = new Tracers(scene);
+const viewmodel = new Viewmodel(settings);
 
 function resize() {
   renderer.setPixelRatio(window.devicePixelRatio * settings.renderScale);
@@ -35,6 +41,7 @@ function resize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.fov = hipVFovDeg(settings, camera.aspect);
   camera.updateProjectionMatrix();
+  viewmodel.setAspect(camera.aspect);
 }
 window.addEventListener('resize', () => {
   resize();
@@ -77,13 +84,16 @@ const SOUND_PREVIEW = { volume: 'hit', shotSound: 'shot', shotVolume: 'shot', hi
 function onSettingChange(key) {
   saveSettings(settings);
   if (SOUND_PREVIEW[key]) sfx.preview(SOUND_PREVIEW[key]);
-  if (key === 'renderScale' || key.startsWith('fov')) resize();
+  if (key === 'renderScale' || key.startsWith('fov') || key === 'viewmodelFov') resize();
+  if (key === 'muzzleFlash') viewmodel.clearFlash();
+  if (key === 'tracers') tracers.clear();
   if (key === 'useRawUpdate') input.bindMoveEvent();
   if (key === 'adsMode') input.ads = false;
   if (session) {
     // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
     session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
     session.ctx.weapon = resolveWeapon(session.ctx.settings);
+    viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight);
   }
   hud.applySettings();
 }
@@ -108,6 +118,8 @@ function startSession(key, ranked) {
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
   session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration };
   session.scenario = session.def.create(ctx);
+  viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight);
+  viewmodel.reset();
   lastPlayed = { key, ranked };
   adsT = 0;
   shotTimer = 0;
@@ -132,6 +144,8 @@ function endScenario() {
   session?.scenario.dispose();
   session = null;
   impacts.clear();
+  tracers.clear();
+  viewmodel.clearFlash();
   camera.fov = hipVFovDeg(settings, camera.aspect); // por si se ha salido en ADS
   camera.updateProjectionMatrix();
 }
@@ -242,6 +256,7 @@ const raycaster = new THREE.Raycaster();
 const rayDir = new THREE.Vector3();
 const forward = new THREE.Vector3();
 const right = new THREE.Vector3();
+const tracerFrom = new THREE.Vector3();
 const smoothstep = (t) => t * t * (3 - 2 * t);
 
 function syncCamera() {
@@ -266,7 +281,14 @@ function shoot(w) {
   rayDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
 
   sfx.shot();
+  viewmodel.fire();
   const hit = castRay(rayDir);
+  if (session.ctx.settings.tracers) {
+    // Sale de donde se ve la boca del cañón y va al punto de impacto
+    viewmodel.muzzleNdc(tracerFrom).setZ(0.5).unproject(camera).sub(camera.position).normalize();
+    tracerFrom.multiplyScalar(TRACER_START).add(camera.position);
+    tracers.add(tracerFrom, hit?.point ?? null, rayDir, session.ctx.settings.tracerColor);
+  }
   if (!hit) return;
   if (!hit.target) {
     impacts.add(hit);
@@ -302,12 +324,15 @@ function update(dt) {
   // Ratón
   const [dx, dy] = input.consumeMouse();
   const radPerCount = hipDegPerCount(s) * sensFactor(s, e, curV, hipV, w.sniper) * DEG;
+  const prevPitch = player.pitch;
   player.yaw -= dx * radPerCount;
   player.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, player.pitch - dy * radPerCount));
+  const turn = { yaw: -dx * radPerCount, pitch: player.pitch - prevPitch };
 
   // Cuenta atrás: se puede mirar y apuntar, pero ni moverse ni disparar, y el tiempo no corre
   if (state === 'countdown') {
     syncCamera();
+    viewmodel.update(dt, { e, turn, moving: false });
     const prev = Math.ceil(countdownLeft);
     countdownLeft -= dt;
     const n = Math.ceil(countdownLeft);
@@ -324,11 +349,13 @@ function update(dt) {
   }
 
   // Movimiento
+  let moving = false;
   if (s.allowMove) {
     const k = input.keys;
     const fwd = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
     const str = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
-    if (fwd || str) {
+    moving = Boolean(fwd || str);
+    if (moving) {
       forward.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
       right.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
       const move = forward.multiplyScalar(fwd).addScaledVector(right, str).normalize();
@@ -342,6 +369,7 @@ function update(dt) {
     }
   }
   syncCamera();
+  viewmodel.update(dt, { e, turn, moving });
 
   stats.time += dt;
   scenario.update(dt);
@@ -358,6 +386,7 @@ function update(dt) {
     }
   }
   if (shotTimer < 0) shotTimer = 0;
+  tracers.update(dt, camera, window.innerHeight);
 
   // Tiempo con la mira sobre un objetivo (métrica de tracking)
   rayDir.set(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -377,7 +406,12 @@ function frame(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   if (state === 'playing' || state === 'countdown') update(dt);
+  renderer.clear();
   renderer.render(scene, camera);
+  if (session) {
+    renderer.clearDepth();
+    renderer.render(viewmodel.scene, viewmodel.camera);
+  }
   requestAnimationFrame(frame);
 }
 syncCamera();

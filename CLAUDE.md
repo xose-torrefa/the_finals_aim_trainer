@@ -37,11 +37,12 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   2. FOV actual, interpolado linealmente en grados entre el de hipfire y el de ADS.
   3. Giro con el ratón: `hipDegPerCount × sensFactor(e)`.
   4. En `countdown`, aquí se actualiza la cuenta atrás y se sale.
-  5. Movimiento WASD.
+  5. Movimiento WASD y `viewmodel.update` (también en la cuenta atrás, antes de salir).
   6. `scenario.update`.
-  7. Disparo según cadencia (`shotTimer`).
+  7. Disparo según cadencia (`shotTimer`) y `tracers.update`.
   8. Rayo central para `onTargetTime`.
   9. HUD.
+- Render en dos pasadas (`renderer.autoClear = false`): el mundo y, si hay partida, `clearDepth()` + la escena del arma.
 
 **UI: `menu.js` y `overlay.js`**
 - `menu.js` es el menú a pantalla completa, con barra lateral y páginas: `scenarios` (tarjetas por grupo), `scenario` (ficha con estadísticas, gráfica e historial), `sandbox`, `settings` (pestañas por sección + valores efectivos) y `results`. Cada página se reconstruye al navegar; `refresh()` actualiza lo que depende de los ajustes sin perder el foco.
@@ -52,6 +53,8 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `castRay()` lanza el rayo contra `world.colliders` + `scenario.hitMeshes`.
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
+- `viewmodel.js` es el arma en primera persona: escena y cámara propias (FOV `viewmodelFov`), modelos hechos con primitivas según `weapon.key` y la mira. En ADS pone el eje de la mira (`y`, `z`) en el centro de la pantalla; los visores (`scoped`) ocultan el arma con el ADS completo. El retroceso es solo visual. También dibuja el fogonazo.
+- `tracers.js`: las trazadoras salen de donde se ve la boca del cañón (`muzzleNdc` proyectado a la cámara del mundo) y van al punto de impacto. Son solo visuales.
 
 **Modos Escenarios / Sandbox**
 - El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
