@@ -13,6 +13,7 @@ import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios.js';
 import { addEntry } from './history.js';
 import { AimAnalysis } from './analysis.js';
+import { routineName } from './routines.js';
 import { t, setLanguage } from './i18n.js';
 
 const EYE_HEIGHT = 1.7;
@@ -57,6 +58,8 @@ const player = { pos: new THREE.Vector3(0, EYE_HEIGHT, 0), yaw: 0, pitch: 0 };
 let state = 'menu';
 let session = null;
 let lastPlayed = null; // { key, ranked } de la última partida, para reiniciar desde los resultados
+// Rutina en curso: { def, index, results: [{ key, t, score }] }. Se abandona al jugar otra cosa o salir.
+let routine = null;
 let countdownLeft = 0;
 let adsT = 0;
 let shotTimer = 0;
@@ -65,7 +68,12 @@ const input = new Input(renderer.domElement, settings);
 const hud = new Hud(settings);
 const sfx = new Sfx(settings);
 const menu = new Menu(document.getElementById('menu'), settings, {
-  onPlay: startSession,
+  onPlay: (key, ranked) => {
+    routine = null;
+    startSession(key, ranked);
+  },
+  onPlayRoutine: startRoutine,
+  onRoutineNext: nextRoutineStep,
   onResume: requestLock,
   onRestart: restartSession,
   onQuit: quitSession,
@@ -157,8 +165,22 @@ function startSession(key, ranked) {
   } else {
     state = 'ready';
     hud.hide();
-    overlay.showReady({ name: scenarioName(key), mode: ranked ? groupName(session.def.group) : 'Sandbox', restartKey: keyLabel(settings.restartKey) });
+    let mode = ranked ? groupName(session.def.group) : 'Sandbox';
+    if (routine) mode = `${routineName(routine.def)} · ${routine.index + 1}/${routine.def.steps.length}`;
+    overlay.showReady({ name: scenarioName(key), mode, restartKey: keyLabel(settings.restartKey) });
   }
+}
+
+/** Empieza una rutina: sus escenarios en modo Escenarios, uno tras otro. */
+function startRoutine(def) {
+  routine = { def, index: 0, results: [] };
+  startSession(def.steps[0], true);
+}
+
+function nextRoutineStep() {
+  if (!routine || routine.index + 1 >= routine.def.steps.length) return;
+  routine.index++;
+  startSession(routine.def.steps[routine.index], true);
 }
 
 function restartSession() {
@@ -184,7 +206,10 @@ function quitSession() {
   overlay.hide();
   hud.hide();
   menu.setPaused(null);
-  if (from?.ranked) menu.show('scenario', from.key);
+  if (routine) {
+    routine = null;
+    menu.show('routines');
+  } else if (from?.ranked) menu.show('scenario', from.key);
   else menu.show(from ? 'sandbox' : undefined);
 }
 
@@ -252,6 +277,7 @@ function finishSession() {
   state = 'results';
   const { def, scenario, stats, ctx, key, ranked, analysis } = session;
   const score = scenario.score(stats);
+  const t = Date.now();
   if (ranked) {
     const s = ctx.settings;
     const w = ctx.weapon;
@@ -259,7 +285,7 @@ function finishSession() {
     const hipDpc = hipDegPerCount(s);
     const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
     addEntry(key, def, {
-      t: Date.now(),
+      t,
       score,
       accuracy: stats.shots > 0 ? (100 * stats.hits) / stats.shots : null,
       cm360: cm360FromDegPerCount(hipDpc, s.dpi),
@@ -272,7 +298,13 @@ function finishSession() {
   hud.hide();
   overlay.hide();
   endScenario();
-  menu.showResults({ key, ranked, weapon: ctx.weapon.key, score, rows, analysis: analysis.result() });
+  let progress = null;
+  if (routine) {
+    // Si se repite un paso, cuenta la última partida
+    routine.results[routine.index] = { key, t, score };
+    progress = { def: routine.def, index: routine.index, results: [...routine.results] };
+  }
+  menu.showResults({ key, ranked, t, weapon: ctx.weapon.key, score, rows, analysis: analysis.result(), routine: progress });
 }
 
 // ---- Juego ----

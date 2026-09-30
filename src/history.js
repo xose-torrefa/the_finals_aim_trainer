@@ -79,3 +79,57 @@ export function mergeHistory(incoming) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   return { added, skipped };
 }
+
+export const RECENT = 10;
+const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+/**
+ * Compara una partida (por su fecha `t`) con las anteriores del mismo escenario.
+ * @returns { best, avg, n }: récord previo, media de las últimas RECENT y cuántas son (null si no hay)
+ */
+export function compareToPrevious(entries, t) {
+  const prev = entries.filter((e) => e.t < t);
+  const recent = prev.slice(-RECENT).map((e) => e.score);
+  return {
+    best: prev.length ? Math.max(...prev.map((e) => e.score)) : null,
+    avg: recent.length ? mean(recent) : null,
+    n: recent.length,
+  };
+}
+
+/** Tendencia: media de las últimas partidas frente a las anteriores, en % (null si hay pocas). */
+export function trend(entries) {
+  const n = Math.min(RECENT, Math.floor(entries.length / 2));
+  if (n < 3) return null;
+  const last = mean(entries.slice(-n).map((e) => e.score));
+  const before = mean(entries.slice(-2 * n, -n).map((e) => e.score));
+  return before > 0 ? { pct: (100 * (last - before)) / before, n } : null;
+}
+
+const dayKey = (time) => {
+  const d = new Date(time);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
+
+/** Constancia en todos los escenarios: partidas de hoy y días seguidos jugando (hasta hoy o ayer). */
+export function activity(now = Date.now()) {
+  const days = new Set();
+  const todayKey = dayKey(now);
+  let today = 0;
+  for (const list of Object.values(loadAll())) {
+    if (!Array.isArray(list)) continue;
+    for (const e of list.filter(isEntry)) {
+      const k = dayKey(e.t);
+      days.add(k);
+      if (k === todayKey) today++;
+    }
+  }
+  const d = new Date(now);
+  if (!days.has(todayKey)) d.setDate(d.getDate() - 1); // la racha sigue viva si hoy aún no has jugado
+  let streak = 0;
+  while (days.has(dayKey(d))) {
+    streak++;
+    d.setDate(d.getDate() - 1);
+  }
+  return { today, streak };
+}

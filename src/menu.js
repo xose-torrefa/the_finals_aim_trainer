@@ -1,8 +1,9 @@
 import { h } from './dom.js';
 import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, sanitizeSettings, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { SIGHTS, resolveWeapon, weaponName, sightName } from './weapons.js';
-import { SCENARIOS, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
-import { getHistory, exportHistory, mergeHistory } from './history.js';
+import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
+import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
+import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
 import { analysisView } from './analysis.js';
 import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
@@ -20,12 +21,20 @@ const BACKUP_MAX_BYTES = 20 * 1024 * 1024;
 const SOUND_TESTS = ['shot', 'hit', 'head', 'kill', 'countdown'];
 const tabOf = (g) => g.tab ?? g.section;
 
-const NAV = ['scenarios', 'sandbox', 'settings'];
+const NAV = ['scenarios', 'routines', 'sandbox', 'settings'];
+// Páginas que cuelgan de una sección de la barra lateral
+const SECTION_OF = { scenario: 'scenarios', 'routine-edit': 'routines', 'routine-summary': 'routines' };
 
 const GROUPS = Map.groupBy(Object.entries(SCENARIOS), ([, sc]) => sc.group);
 
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const round1 = (x) => Math.round(x * 10) / 10;
+/** Diferencia con signo en el formato del escenario: '+3.2%', '−1 kills'. */
+const signed = (fmt, d) => `${d >= 0 ? '+' : '−'}${fmt(round1(Math.abs(d)))}`;
+/** Texto en singular o plural (`<clave>.one` / `<clave>.other`). */
+const plural = (key, n) => t(`${key}.${n === 1 ? 'one' : 'other'}`, { n });
+/** Duración de un escenario en modo Escenarios (s). */
+const rankedDuration = (key) => ({ ...RANKED_BASE, ...SCENARIOS[key].fixed }).duration;
 const pctText = (x) => (Number.isFinite(x) ? `${x.toFixed(1)}%` : '—');
 const numText = (x) => (Number.isFinite(x) ? x.toFixed(1) : '—');
 const dateText = (time, year = false) => new Date(time).toLocaleString(locale(), {
@@ -54,8 +63,8 @@ function dropZone(box, onFile) {
 
 export class Menu {
   /**
-   * @param handlers { onPlay(key, ranked), onResume(), onRestart(), onQuit(), onChange(key),
-   *   onReplace() (tras sustituir todos los ajustes), onSound(kind) }
+   * @param handlers { onPlay(key, ranked), onPlayRoutine(def), onRoutineNext(), onResume(), onRestart(),
+   *   onQuit(), onChange(key), onReplace() (tras sustituir todos los ajustes), onSound(kind) }
    */
   constructor(root, settings, handlers) {
     this.root = root;
@@ -65,6 +74,7 @@ export class Menu {
     this.detailKey = null;
     this.settingsTab = tabOf(SETTINGS_SCHEMA.find((g) => g.page === 'settings'));
     this.results = null;
+    this.draft = null; // rutina que se está editando: { id, name, steps }
     this.paused = null;
     this.fieldRows = [];
     this.buildShell();
@@ -105,7 +115,7 @@ export class Menu {
     this.content.scrollTop = scroll;
   }
 
-  /** @param page 'scenarios' | 'scenario' | 'sandbox' | 'settings' | 'results' */
+  /** @param page 'scenarios' | 'scenario' | 'routines' | 'routine-edit' | 'routine-summary' | 'sandbox' | 'settings' | 'results' */
   navigate(page, key = null) {
     this.page = page;
     if (page === 'scenario') this.detailKey = key;
@@ -118,11 +128,14 @@ export class Menu {
     this.readout = null;
     this.weaponInfo = null;
     this.chPreview = null;
-    const section = this.page === 'scenario' ? 'scenarios' : this.page;
+    const section = SECTION_OF[this.page] ?? this.page;
     for (const b of this.navButtons) b.classList.toggle('active', b.dataset.page === section);
     const pages = {
       scenarios: () => this.renderScenarios(),
       scenario: () => this.renderScenario(this.detailKey),
+      routines: () => this.renderRoutines(),
+      'routine-edit': () => this.renderRoutineEdit(),
+      'routine-summary': () => this.renderRoutineSummary(),
       sandbox: () => this.renderSandbox(),
       settings: () => this.renderSettings(),
       results: () => this.renderResults(),
@@ -162,10 +175,12 @@ export class Menu {
   // ---------- Escenarios ----------
 
   renderScenarios() {
+    const { today, streak } = activity();
     return [
       h('header', { class: 'page-head' },
         h('h1', {}, t('nav.scenarios')),
-        h('p', { class: 'lead' }, t('scenarios.lead'))),
+        h('p', { class: 'lead' }, t('scenarios.lead')),
+        (today > 0 || streak > 0) && chips([plural('activity.today', today), plural('activity.streak', streak)])),
       [...GROUPS].map(([group, entries]) => h('section', { class: 'group' },
         h('h2', {}, groupName(group)),
         h('div', { class: 'cards' }, entries.map(([key, def]) => this.scenarioCard(key, def))))),
@@ -221,13 +236,17 @@ export class Menu {
     const accs = recent.map((e) => e.accuracy).filter(Number.isFinite);
     const num = (text) => h('td', { class: 'num' }, text);
     const rows = entries.map((e, i) => ({ e, i })).slice(-25).reverse();
+    const tr = trend(entries);
     return [
       h('div', { class: 'tiles' },
         tile(t('stat.runs'), String(entries.length)),
         tile(t('stat.best'), fmt(scores[bestIdx]), 'accent'),
         tile(t('stat.avgLast', { n: recent.length }), fmt(round1(avg(recent.map((e) => e.score))))),
         tile(t('stat.last'), fmt(scores.at(-1))),
-        tile(t('stat.accLast', { n: recent.length }), accs.length ? pctText(avg(accs)) : '—')),
+        tile(t('stat.accLast', { n: recent.length }), accs.length ? pctText(avg(accs)) : '—'),
+        tr
+          ? tile(t('stat.trend', { n: tr.n }), `${tr.pct >= 0 ? '+' : '−'}${Math.abs(tr.pct).toFixed(1)}%`, tr.pct >= 0 ? 'up' : 'down')
+          : tile(t('stat.trendShort'), '—')),
       card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 240 })),
       card(t('card.history'),
         h('table', { class: 'history' },
@@ -450,7 +469,7 @@ export class Menu {
   /** Descarga un JSON con los ajustes y todo el historial. */
   exportBackup() {
     const now = new Date();
-    const data = { app: BACKUP_APP, version: 1, exported: now.toISOString(), settings: this.settings, history: exportHistory() };
+    const data = { app: BACKUP_APP, version: 1, exported: now.toISOString(), settings: this.settings, history: exportHistory(), routines: loadCustomRoutines() };
     const name = `finals-aim-${now.toISOString().slice(0, 10)}.json`;
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
     h('a', { href: url, download: name }).click();
@@ -470,12 +489,16 @@ export class Menu {
       }
       if (data?.app !== BACKUP_APP || typeof data.history !== 'object') throw new Error(t('backup.invalid'));
       const { added, skipped } = mergeHistory(data.history);
+      const routines = mergeRoutines(data.routines);
       const restore = this.withSettings.checked && data.settings && typeof data.settings === 'object';
       if (restore) {
         Object.assign(this.settings, sanitizeSettings(data.settings));
         this.handlers.onReplace(); // reconstruye el menú: el mensaje va después, ya en el idioma nuevo
       }
-      this.setBackupStatus(t('backup.imported', { added, skipped }) + (restore ? t('backup.settingsRestored') : ''));
+      let text = t('backup.imported', { added, skipped });
+      if (routines) text += t('backup.routinesImported', { n: routines });
+      if (restore) text += t('backup.settingsRestored');
+      this.setBackupStatus(text);
     } catch (err) {
       this.setBackupStatus(t('backup.failed', { error: err.message }), true);
     }
@@ -586,32 +609,234 @@ export class Menu {
     const def = SCENARIOS[r.key];
     const fmt = def.formatScore;
     const entries = r.ranked ? getHistory(r.key, def) : [];
-    const previous = entries.slice(0, -1).map((e) => e.score);
-    const best = previous.length ? Math.max(...previous) : null;
-
-    let badge;
-    if (!r.ranked) badge = h('span', { class: 'badge' }, t('results.sandbox'));
-    else if (best === null) badge = h('span', { class: 'badge' }, t('results.first'));
-    else if (r.score > best) badge = h('span', { class: 'badge record' }, t('results.record', { prev: fmt(best) }));
-    else badge = h('span', { class: 'badge' }, t('results.behind', { best: fmt(best), diff: fmt(round1(best - r.score)) }));
-
     const again = keyLabel(this.settings.restartKey);
+    const retry = (primary) => h('button', { class: primary ? 'primary big' : '', onclick: () => this.handlers.onRestart() }, t('results.retry', { key: again }));
+
+    let actions;
+    const p = r.routine;
+    if (p) {
+      const next = p.def.steps[p.index + 1];
+      actions = next
+        ? [h('button', { class: 'primary big', onclick: () => this.handlers.onRoutineNext() }, t('routines.next', { name: scenarioName(next) })),
+          retry(false),
+          h('button', { onclick: () => this.navigate('routines') }, t('routines.leave'))]
+        : [h('button', { class: 'primary big', onclick: () => this.navigate('routine-summary') }, t('routines.summary')), retry(false)];
+    } else {
+      actions = [
+        retry(true),
+        r.ranked
+          ? h('button', { onclick: () => this.navigate('scenario', r.key) }, t('results.stats'))
+          : h('button', { onclick: () => this.navigate('sandbox') }, t('results.setup')),
+        h('button', { onclick: () => this.navigate('scenarios') }, t('nav.scenarios')),
+      ];
+    }
+
+    let eyebrow = t('results.eyebrow', { mode: r.ranked ? groupName(def.group) : 'Sandbox' });
+    if (p) eyebrow = t('routines.eyebrow', { name: routineName(p.def), step: p.index + 1, total: p.def.steps.length });
     return [
       h('header', { class: 'page-head' },
-        h('span', { class: 'eyebrow' }, t('results.eyebrow', { mode: r.ranked ? groupName(def.group) : 'Sandbox' })),
+        h('span', { class: 'eyebrow' }, eyebrow),
         h('h1', {}, scenarioName(r.key)),
         h('p', { class: 'lead' }, weaponName(r.weapon))),
+      p && this.routineSteps(p),
       h('div', { class: 'result-hero' },
-        h('div', { class: 'score' }, h('span', { class: 'score-label' }, t('col.score')), h('strong', {}, fmt(r.score)), badge),
-        h('div', { class: 'actions' },
-          h('button', { class: 'primary big', onclick: () => this.handlers.onRestart() }, t('results.retry', { key: again })),
-          r.ranked
-            ? h('button', { onclick: () => this.navigate('scenario', r.key) }, t('results.stats'))
-            : h('button', { onclick: () => this.navigate('sandbox') }, t('results.setup')),
-          h('button', { onclick: () => this.navigate('scenarios') }, t('nav.scenarios')))),
+        h('div', { class: 'score' }, h('span', { class: 'score-label' }, t('col.score')), h('strong', {}, fmt(r.score)), this.resultBadges(r, entries)),
+        h('div', { class: 'actions' }, actions)),
       h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(t(k), String(v)))),
       r.analysis && this.analysisCard(r.analysis),
       r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
+    ];
+  }
+
+  /** Récord y comparación con la media de las partidas anteriores. */
+  resultBadges(r, entries) {
+    const badge = (text, cls = '') => h('span', { class: `badge ${cls}` }, text);
+    if (!r.ranked) return h('div', { class: 'badges' }, badge(t('results.sandbox')));
+    const fmt = SCENARIOS[r.key].formatScore;
+    const { best, avg: prevAvg, n } = compareToPrevious(entries, r.t);
+    if (best === null) return h('div', { class: 'badges' }, badge(t('results.first')));
+    const diff = r.score - prevAvg;
+    return h('div', { class: 'badges' },
+      r.score > best
+        ? badge(t('results.record', { prev: fmt(best) }), 'record')
+        : badge(t('results.behind', { best: fmt(best), diff: fmt(round1(best - r.score)) })),
+      badge(t('results.vsAvg', { diff: signed(fmt, diff), n }), diff >= 0 ? 'up' : 'down'));
+  }
+
+  /** Pasos de la rutina con el actual marcado. */
+  routineSteps(p) {
+    return h('ol', { class: 'routine-steps' }, p.def.steps.map((key, i) => h('li', {
+      class: i === p.index ? 'current' : p.results[i] ? 'done' : '',
+    }, scenarioName(key))));
+  }
+
+  // ---------- Rutinas ----------
+
+  renderRoutines() {
+    const custom = loadCustomRoutines();
+    return [
+      h('header', { class: 'page-head' },
+        h('h1', {}, t('nav.routines')),
+        h('p', { class: 'lead' }, t('routines.lead'))),
+      h('section', { class: 'group' },
+        h('h2', {}, t('routines.builtin')),
+        h('div', { class: 'cards' }, BUILTIN_ROUTINES.map((r) => this.routineCard(r)))),
+      h('section', { class: 'group' },
+        h('div', { class: 'group-head' },
+          h('h2', {}, t('routines.custom')),
+          h('button', { onclick: () => this.editRoutine({ id: newRoutineId(), name: '', steps: [] }) }, t('routines.new'))),
+        custom.length
+          ? h('div', { class: 'cards' }, custom.map((r) => this.routineCard(r)))
+          : h('p', { class: 'empty' }, t('routines.none'))),
+    ];
+  }
+
+  routineCard(r) {
+    const minutes = Math.round(r.steps.reduce((sum, k) => sum + rankedDuration(k), 0) / 60);
+    const buttons = r.builtin
+      ? [h('button', { onclick: () => this.editRoutine({ id: newRoutineId(), name: t('routines.copyName', { name: routineName(r) }).slice(0, MAX_NAME), steps: [...r.steps] }) }, t('routines.duplicate'))]
+      : [h('button', { onclick: () => this.editRoutine({ ...r, steps: [...r.steps] }) }, t('routines.edit')), this.deleteButton(r)];
+    return h('article', { class: 'scenario-card static' },
+      h('h3', {}, routineName(r)),
+      r.builtin && h('p', { class: 'desc' }, t(`routine.${r.id}.desc`)),
+      h('ol', { class: 'routine-list' }, r.steps.map((k) => h('li', {}, scenarioName(k)))),
+      h('div', { class: 'card-foot' },
+        h('div', { class: 'mini-stat' }, h('span', {}, t('routines.duration')), h('strong', {}, `${minutes} min`)),
+        h('div', { class: 'actions' }, buttons),
+        h('button', { class: 'primary play', onclick: () => this.handlers.onPlayRoutine(r) }, t('common.play'))));
+  }
+
+  /** Borrar pide un segundo clic. */
+  deleteButton(r) {
+    const b = h('button', {}, t('routines.delete'));
+    b.addEventListener('click', () => {
+      if (b.dataset.armed) {
+        deleteRoutine(r.id);
+        this.render();
+      } else {
+        b.dataset.armed = '1';
+        b.textContent = t('routines.confirmDelete');
+        b.classList.add('danger');
+      }
+    });
+    b.addEventListener('blur', () => {
+      delete b.dataset.armed;
+      b.textContent = t('routines.delete');
+      b.classList.remove('danger');
+    });
+    return b;
+  }
+
+  editRoutine(draft) {
+    this.draft = draft;
+    this.navigate('routine-edit');
+  }
+
+  renderRoutineEdit() {
+    const d = this.draft;
+    const name = h('input', { type: 'text', class: 'text', value: d.name, maxLength: MAX_NAME, placeholder: t('routines.namePlaceholder') });
+    name.addEventListener('input', () => {
+      d.name = name.value;
+      status.textContent = '';
+    });
+    const list = h('ol', { class: 'step-list' });
+    const status = h('p', { class: 'import-status error' });
+    const picker = h('select', {}, [...GROUPS].map(([group, entries]) => h('optgroup', { label: groupName(group) },
+      entries.map(([key]) => h('option', { value: key }, scenarioName(key))))));
+    const addBtn = h('button', {}, t('routines.add'));
+    const icon = (text, title, enabled, action) => h('button', { class: 'icon', title, disabled: !enabled, onclick: () => { action(); redraw(); } }, text);
+    const move = (i, j) => { [d.steps[i], d.steps[j]] = [d.steps[j], d.steps[i]]; };
+    const redraw = () => {
+      status.textContent = '';
+      list.replaceChildren(...d.steps.map((key, i) => h('li', {},
+        h('span', {}, scenarioName(key)),
+        h('div', { class: 'step-actions' },
+          icon('↑', t('routines.up'), i > 0, () => move(i, i - 1)),
+          icon('↓', t('routines.down'), i < d.steps.length - 1, () => move(i, i + 1)),
+          icon('✕', t('routines.remove'), true, () => d.steps.splice(i, 1))))));
+      list.classList.toggle('hidden', d.steps.length === 0);
+      addBtn.disabled = d.steps.length >= MAX_STEPS;
+      const minutes = Math.round(d.steps.reduce((sum, k) => sum + rankedDuration(k), 0) / 60);
+      total.textContent = t('routines.total', { n: d.steps.length, max: MAX_STEPS, minutes });
+    };
+    const total = h('p', { class: 'muted small' });
+    addBtn.addEventListener('click', () => {
+      d.steps.push(picker.value);
+      redraw();
+    });
+    const save = () => {
+      if (!d.name.trim()) return void (status.textContent = t('routines.needName'));
+      if (!d.steps.length) return void (status.textContent = t('routines.needSteps'));
+      saveRoutine(d);
+      this.navigate('routines');
+    };
+    redraw();
+    const isNew = !loadCustomRoutines().some((r) => r.id === d.id);
+    return [
+      h('button', { class: 'back', onclick: () => this.navigate('routines') }, t('routines.back')),
+      h('header', { class: 'page-head' }, h('h1', {}, t(isNew ? 'routines.newTitle' : 'routines.editTitle'))),
+      card(null,
+        h('label', { class: 'field' }, h('div', { class: 'field-label' }, h('span', {}, t('routines.name'))), name),
+        h('h3', {}, t('routines.steps')),
+        list,
+        h('div', { class: 'actions' }, picker, addBtn),
+        total,
+        status,
+        h('div', { class: 'actions' },
+          h('button', { class: 'primary', onclick: save }, t('routines.save')),
+          h('button', { onclick: () => this.navigate('routines') }, t('routines.cancel')))),
+    ];
+  }
+
+  renderRoutineSummary() {
+    const p = this.results?.routine;
+    if (!p) return this.renderRoutines();
+    let above = 0;
+    let compared = 0;
+    let records = 0;
+    const rows = p.def.steps.map((key, i) => {
+      const res = p.results[i];
+      const def = SCENARIOS[key];
+      const fmt = def.formatScore;
+      if (!res) return h('tr', {}, h('td', { class: 'muted' }, String(i + 1)), h('td', {}, scenarioName(key)), h('td', { class: 'num muted', colSpan: 3 }, t('routines.skipped')));
+      const { best, avg: prevAvg } = compareToPrevious(getHistory(key, def), res.t);
+      const record = best !== null && res.score > best;
+      if (record) records++;
+      let vs = '—';
+      let cls = '';
+      if (prevAvg !== null) {
+        const diff = res.score - prevAvg;
+        compared++;
+        if (diff >= 0) above++;
+        vs = signed(fmt, diff);
+        cls = diff >= 0 ? 'up' : 'down';
+      }
+      return h('tr', { class: record ? 'best' : '' },
+        h('td', { class: 'muted' }, String(i + 1)),
+        h('td', {}, scenarioName(key)),
+        h('td', { class: 'num' }, fmt(res.score)),
+        h('td', { class: `num ${cls}` }, vs),
+        h('td', { class: 'num' }, record ? t('routines.recordMark') : best === null ? t('routines.firstMark') : ''));
+    });
+    const done = p.results.filter(Boolean).length;
+    return [
+      h('header', { class: 'page-head detail-head' },
+        h('div', {},
+          h('span', { class: 'eyebrow' }, t('routines.summaryEyebrow')),
+          h('h1', {}, routineName(p.def))),
+        h('div', { class: 'actions' },
+          h('button', { class: 'primary big', onclick: () => this.handlers.onPlayRoutine(p.def) }, t('routines.again')),
+          h('button', { onclick: () => this.navigate('routines') }, t('nav.routines')))),
+      h('div', { class: 'tiles' },
+        tile(t('routines.completed'), `${done}/${p.def.steps.length}`),
+        tile(t('routines.aboveAvg'), compared ? `${above}/${compared}` : '—', compared && above * 2 >= compared ? 'up' : ''),
+        tile(t('routines.records'), String(records), records ? 'accent' : '')),
+      card(null,
+        h('table', { class: 'history' },
+          h('thead', {}, h('tr', {},
+            h('th', {}, '#'), h('th', {}, t('routines.scenario')), h('th', { class: 'num' }, t('col.score')),
+            h('th', { class: 'num' }, t('routines.vsAvg')), h('th', { class: 'num' }, ''))),
+          h('tbody', {}, rows))),
     ];
   }
 

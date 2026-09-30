@@ -31,6 +31,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `countdown`: dura `settings.countdown` s (0 = se salta). Se puede mirar y apuntar, pero ni moverse ni disparar, y ni el tiempo ni los objetivos avanzan. Se repite al volver de la pausa.
   - Al capturar el ratón (`pointerlockchange`) se pasa de `ready`/`paused` a la cuenta atrás; al perderlo, de `countdown`/`playing` a `paused`.
 - `startSession(key, ranked)` crea `ctx = { scene, camera, player, settings, weapon, stats }` y lo pasa a `SCENARIOS[key].create(ctx)`. Si el ratón ya está capturado (reinicio en plena partida) va directo a la cuenta atrás; si no, a `ready`.
+- Rutinas: `startRoutine(def)` guarda `routine = { def, index, results }` y lanza cada paso con `startSession(key, true)`. El botón "Siguiente" de los resultados llama a `onRoutineNext`. La rutina se abandona al jugar otra cosa (`onPlay`) o al salir desde la pausa. Si se repite un paso, cuenta la última partida.
 - `settings.restartKey` (un `KeyboardEvent.code`) reinicia la última partida desde `ready`, `countdown`, `playing`, `paused` y la página de resultados.
 - Orden de `update(dt)` (se llama en `countdown` y `playing`):
   1. Progreso de ADS `adsT`, suavizado a `e`.
@@ -45,7 +46,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Render en dos pasadas (`renderer.autoClear = false`): el mundo y, si hay partida, `clearDepth()` + la escena del arma.
 
 **UI: `menu.js` y `overlay.js`**
-- `menu.js` es el menú a pantalla completa, con barra lateral y páginas: `scenarios` (tarjetas por grupo), `scenario` (ficha con estadísticas, gráfica e historial), `sandbox`, `settings` (pestañas por sección + valores efectivos) y `results`. Cada página se reconstruye al navegar; `refresh()` actualiza lo que depende de los ajustes sin perder el foco.
+- `menu.js` es el menú a pantalla completa, con barra lateral y páginas: `scenarios` (tarjetas por grupo, con partidas de hoy y racha), `scenario` (ficha con estadísticas, tendencia, gráfica e historial), `routines`, `routine-edit` y `routine-summary`, `sandbox`, `settings` (pestañas por sección + valores efectivos) y `results`. Cada página se reconstruye al navegar; `refresh()` actualiza lo que depende de los ajustes sin perder el foco.
 - `overlay.js` es la capa sobre la escena durante la partida: "Haz clic para empezar", la cuenta atrás y el menú de pausa. Desde la pausa, "Ajustes" abre el menú con una tarjeta de "Partida en pausa" en la barra lateral.
 
 **Disparo**
@@ -59,7 +60,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 **Modos Escenarios / Sandbox**
 - El modo lo decide la página desde la que se lanza la partida (`ranked` en `startSession`). En Escenarios, `scenarioSettings()` (en `scenarios.js`) impone `RANKED_BASE` + el `fixed` de cada escenario sobre los ajustes del usuario. La sesión guarda esos ajustes efectivos en `ctx.settings`; `update()` y los escenarios deben leer siempre `ctx.settings`, nunca el `settings` global.
 - Las secciones del esquema con `page: 'sandbox'` solo se muestran y se aplican en Sandbox; las de `page: 'settings'` son lo personal (sens, FOV, ADS, color, cuenta atrás…) y valen en ambos modos. `settings.scenario` es el escenario elegido en Sandbox.
-- `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
+- `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. También calcula la comparación con las partidas anteriores (`compareToPrevious`: récord y media de las últimas 10), la tendencia (`trend`) y la constancia (`activity`). **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
 **`analysis.js`: análisis de la puntería**
 - `AimAnalysis` se crea por sesión y no cambia la puntuación. Sale en la tarjeta de análisis de los resultados (Escenarios y Sandbox) y no se guarda en el historial.
@@ -67,8 +68,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Flicks: en el primer impacto a un objetivo con vida finita, analiza el recorrido de la mira desde el último impacto/kill o la aparición. El movimiento principal acaba cuando la velocidad cae al 20 % del pico; si ese punto está más allá del radio angular del objetivo es overshoot, y si no llega, undershoot.
 - Los objetivos exponen `aimInfo()` → `{ center, half, radius }` (centro, semialtura y radio en m).
 
+**`routines.js`: rutinas**
+- Las predefinidas (`BUILTIN_ROUTINES`) tienen sus textos en i18n (`routine.<id>`, `routine.<id>.desc`). Las propias se guardan en `finals-aim.routines.v1` como `{ id: 'c…', name, steps }`, validadas con `sanitize()` (solo escenarios existentes, como mucho `MAX_STEPS`). Si se quita o se renombra un escenario, sus pasos desaparecen de las rutinas.
+
 **Copia de seguridad (Ajustes → Copia de seguridad)**
-- Exporta un JSON `{ app: 'finals-aim', version, exported, settings, history }`. Al importar, `mergeHistory()` añade las partidas sin duplicar (misma `t` en el mismo `escenario@versión`) y solo con campos numéricos conocidos; los ajustes pasan por `sanitizeSettings()` y se aplican con `onReplace` (sin sonidos de prueba, reconstruyendo el menú).
+- Exporta un JSON `{ app: 'finals-aim', version, exported, settings, history, routines }`. Las rutinas se fusionan por `id`. Al importar, `mergeHistory()` añade las partidas sin duplicar (misma `t` en el mismo `escenario@versión`) y solo con campos numéricos conocidos; los ajustes pasan por `sanitizeSettings()` y se aplican con `onReplace` (sin sonidos de prueba, reconstruyendo el menú).
 
 **`settings.js`: ajustes**
 - `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`; tipos `select`, `checkbox`, `color`, `number` y `key`). El esquema no lleva textos: `section`/`tab` son ids (`section.<id>`), la etiqueta es `field.<text ?? key>` y la pista, si existe en el diccionario, `field.<…>.hint`; las opciones son `[valor, clave de texto]`. Añadir un ajuste = poner su valor por defecto + su campo en el esquema + sus textos en todos los idiomas.
