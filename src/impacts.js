@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 
 const LIFE = 1.5;
 const FADE = 0.5;

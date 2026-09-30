@@ -7,6 +7,8 @@ npm ci      # instala exactamente lo del lockfile (solo three)
 npm start   # http://localhost:5173
 ```
 
+También se puede publicar en GitHub Pages: el workflow `.github/workflows/pages.yml` lo despliega en cada push a `main` (en el repo, Settings → Pages → Source: **GitHub Actions**). El historial y los ajustes van por dominio, así que para llevártelos de local a Pages usa Ajustes → Copia de seguridad.
+
 Controles: clic izq. disparar · clic der. ADS · WASD moverse · R reiniciar · Esc pausa.
 
 Cada partida empieza en pausa: haz clic para capturar el ratón y arranca una cuenta atrás (3 s por defecto, configurable en Ajustes → Partida, igual que la tecla de reinicio).
@@ -48,4 +50,5 @@ Ajustes → Importar de The Finals puede cargar `%LOCALAPPDATA%\Discovery\Saved\
 - `.npmrc`: `ignore-scripts`, `save-exact`, `allow-git=none`, `min-release-age=14`, registry explícito.
 - `npm run verify` comprueba las firmas del registro y el árbol de dependencias.
 - `server.mjs` no tiene dependencias, solo escucha en `127.0.0.1`, sirve una lista blanca de rutas (solo `node_modules/three/build`), rechaza path traversal y Hosts ajenos, y envía una CSP estricta (`script-src 'self'`, sin inline ni eval).
+- El workflow de Pages usa `npm ci` + `npm run verify`, acciones fijadas por SHA de commit y permisos mínimos por job. En Pages solo vale la CSP del `<meta>` (no se pueden enviar cabeceras propias).
 - Para actualizar three: revisar el changelog, elegir una versión con más de 14 días, `npm install three@X`, luego `npm run verify`.

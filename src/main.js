@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 import { DEG, loadSettings, saveSettings, keyLabel, hipVFovDeg, adsVFovDeg, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { resolveWeapon, damageAt } from './weapons.js';
 import { Input } from './input.js';

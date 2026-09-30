@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 import { Target, SphereTarget, pickClass, CLASSES } from './target.js';
 import { idealTTK, weaponName, sightName } from './weapons.js';
 import { DEG } from './settings.js';

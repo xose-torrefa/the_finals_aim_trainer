@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 
 function gridTexture(renderer) {
   const size = 256;

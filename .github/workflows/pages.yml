@@ -1,0 +1,64 @@
+# Publica el trainer en GitHub Pages en cada push a main.
+# Las acciones van fijadas por SHA de commit (con la versión en el comentario),
+# igual que three va fijado a una versión exacta.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Node 24 trae npm 11, que entiende las opciones de .npmrc
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Instalar dependencias (lockfile, sin scripts)
+        run: npm ci
+
+      - name: Verificar firmas y árbol de dependencias
+        run: npm run verify
+
+      # Mismo contenido que sirve server.mjs: FILES + MOUNTS
+      - name: Montar el sitio
+        run: |
+          mkdir -p _site/lib/three
+          cp index.html styles.css _site/
+          cp -r src _site/src
+          cp node_modules/three/build/*.js _site/lib/three/
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

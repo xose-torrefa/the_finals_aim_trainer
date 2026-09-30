@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 
 // Tamaños aproximados de hitbox por clase. HP reales de The Finals.
 export const CLASSES = {

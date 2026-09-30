@@ -3,7 +3,7 @@
 // objetivos y su tamaño no dependa del FOV de juego. Los modelos se construyen
 // con primitivas (sin ficheros externos); el eje de la mira de cada uno queda
 // en el centro de la pantalla con el ADS completo.
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 20).rotateX(Math.PI / 2); // eje en z

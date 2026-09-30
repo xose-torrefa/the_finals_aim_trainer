@@ -2,7 +2,7 @@
 // solo visuales (el disparo es hitscan y ya ha impactado). Cada una es una
 // cinta de 4 vértices orientada a la cámara, con un ancho constante en píxeles
 // y un degradado de la cola (negro = invisible con mezcla aditiva) a la cabeza.
-import * as THREE from '/lib/three/three.module.js';
+import * as THREE from '../lib/three/three.module.js';
 
 const SPEED = 400; // m/s
 const LENGTH = 7; // m

@@ -21,7 +21,13 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - **CSP estricta** (`script-src 'self'`, `style-src 'self'`, en la cabecera del servidor y en el `<meta>` de `index.html`):
   - No se pueden usar scripts ni `<style>` inline, `eval`, ni `setAttribute('style', …)`. `el.style.x = …` y `style.setProperty` sí funcionan.
   - La UI construye el DOM con el helper `h()` de `dom.js`, sin `innerHTML`.
-- **Import de three:** `import * as THREE from '/lib/three/three.module.js'`, con ruta absoluta.
+- **Import de three:** `import * as THREE from '../lib/three/three.module.js'`. Todas las rutas son relativas (también en `index.html`), porque en GitHub Pages el sitio vive en `/<repo>/` y una ruta absoluta daría 404. No sirve un import map: la CSP bloquea el `<script type="importmap">` inline.
+
+## GitHub Pages
+
+- `.github/workflows/pages.yml` publica en cada push a `main`: `npm ci` + `npm run verify` y luego monta `_site` con lo mismo que sirve `server.mjs` (`index.html`, `styles.css`, `src/` y `node_modules/three/build/*.js` → `lib/three/`). **Si añades un archivo a `FILES` o a `MOUNTS`, añádelo también al paso "Montar el sitio".**
+- Las acciones van fijadas por SHA de commit, con la versión en un comentario. Para actualizarlas, elige una versión con más de 14 días (como con npm) y sustituye el SHA.
+- Pages no permite cabeceras propias: solo se aplica la CSP del `<meta>` de `index.html` (sin `frame-ancestors`). Cualquier cambio en la CSP hay que hacerlo en los dos sitios.
 
 ## Arquitectura
 
