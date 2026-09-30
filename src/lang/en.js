@@ -8,6 +8,9 @@ export default {
   'nav.settings': 'Settings',
   'menu.language': 'Language',
   'menu.keys': 'Left click: shoot · Right click: ADS · WASD: move · {key}: restart · Esc: pause',
+  'fullscreen.enter': 'Fullscreen',
+  'fullscreen.exit': 'Exit fullscreen',
+  'fullscreen.hint': 'Play in fullscreen: the view only matches the game when it fills the whole screen.',
   'common.play': 'Play',
   'common.resume': 'Resume',
   'common.quit': 'Quit',
@@ -18,6 +21,7 @@ export default {
   'overlay.cta': 'Click to start',
   'overlay.keys': 'Left click: shoot · Right click: ADS · {key}: restart · Esc: pause',
   'overlay.back': 'Back to menu',
+  'overlay.fullscreen': 'Tip: play in fullscreen (button or F11) so the view matches the game.',
   'overlay.paused': 'Paused',
   'overlay.restart': 'Restart ({key})',
 

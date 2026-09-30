@@ -9,6 +9,7 @@ import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
 import { t, hasText, locale, LANGUAGES } from './i18n.js';
+import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './fullscreen.js';
 
 const FIELDS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f]));
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
@@ -79,6 +80,7 @@ export class Menu {
     this.fieldRows = [];
     this.buildShell();
     this.render();
+    onFullscreenChange(() => this.updateFullscreen());
   }
 
   // ---------- Estructura y navegación ----------
@@ -91,6 +93,8 @@ export class Menu {
     });
     this.pauseCard = h('div', { class: 'pause-card hidden' });
     this.keysHint = h('p', { class: 'keys' });
+    this.fsButton = h('button', { class: 'fs-toggle', onclick: toggleFullscreen });
+    this.fsHint = h('p', { class: 'keys fs-hint' }, t('fullscreen.hint'));
     this.content = h('main', { class: 'content' });
     const language = h('select', {},
       LANGUAGES.map((l) => h('option', { value: l.code, selected: this.settings.language === l.code }, l.name)));
@@ -101,9 +105,21 @@ export class Menu {
         h('nav', {}, this.navButtons),
         this.pauseCard,
         this.keysHint,
+        this.fsHint,
+        this.fsButton,
         h('label', { class: 'language' }, h('span', {}, t('menu.language')), language)),
       this.content,
     );
+    this.updateFullscreen();
+  }
+
+  /** Botón de pantalla completa: se oculta con la del navegador (F11), que la API no puede quitar. */
+  updateFullscreen() {
+    const api = Boolean(document.fullscreenElement);
+    const full = isFullscreen();
+    this.fsButton.classList.toggle('hidden', !canFullscreen() || (full && !api));
+    this.fsButton.textContent = t(api ? 'fullscreen.exit' : 'fullscreen.enter');
+    this.fsHint.classList.toggle('hidden', full);
   }
 
   /** Reconstruye el menú entero con los textos del idioma actual, sin cambiar de página. */

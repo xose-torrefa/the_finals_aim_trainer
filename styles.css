@@ -133,6 +133,7 @@ html, body {
 .ov-card .keys { margin-top: 10px; }
 .ov-card .message { margin-top: 10px; }
 .ov-card .message:empty { display: none; }
+.fs-tip { display: grid; justify-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .ov-actions { display: grid; gap: 8px; margin-top: 20px; }
 .ov-actions button { width: 100%; }
 
@@ -213,6 +214,8 @@ nav { display: grid; gap: 2px; }
 .pause-card .message:empty { display: none; }
 
 .sidebar .keys { margin-top: auto; padding: 0 10px; }
+.sidebar .fs-hint { padding: 0 10px; color: var(--accent-2); }
+.fs-toggle { margin: 0 10px; }
 .sidebar .language { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; color: var(--muted); font-size: 12px; }
 .sidebar .language select {
   font: inherit;
@@ -240,6 +243,8 @@ nav { display: grid; gap: 2px; }
   .nav-item { border-left: none; border-bottom: 3px solid transparent; border-radius: 0; }
   .nav-item.active { border-bottom-color: var(--accent); }
   .sidebar .keys { display: none; }
+  .sidebar .fs-hint { display: none; }
+  .fs-toggle { margin: 0; }
   .sidebar .language { margin-left: auto; }
   .page { padding: 20px 16px 40px; }
 }

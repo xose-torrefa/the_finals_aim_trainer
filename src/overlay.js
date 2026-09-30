@@ -1,5 +1,6 @@
 import { h } from './dom.js';
 import { t } from './i18n.js';
+import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './fullscreen.js';
 
 // Capa sobre la escena durante una partida: "clic para empezar", cuenta atrás
 // y menú de pausa. El menú completo (menu.js) solo se abre fuera de la partida
@@ -13,17 +14,28 @@ export class Overlay {
     this.handlers = handlers;
     this.count = null;
     this.message = h('p', { class: 'message' });
+    this.fsTip = null;
+    onFullscreenChange(() => this.fsTip?.classList.toggle('hidden', isFullscreen()));
   }
 
   /** Partida preparada: espera un clic (gesto necesario para capturar el ratón). */
   showReady({ name, mode, restartKey }) {
     this.message.textContent = '';
+    this.fsTip = h('div', { class: `fs-tip${isFullscreen() ? ' hidden' : ''}` },
+      h('p', { class: 'keys' }, t('overlay.fullscreen')),
+      canFullscreen() && h('button', {
+        onclick: (e) => {
+          e.stopPropagation();
+          toggleFullscreen();
+        },
+      }, t('fullscreen.enter')));
     this.show('ready', h('div', { class: 'ov-card' },
       h('span', { class: 'eyebrow' }, mode),
       h('h1', {}, name),
       h('p', { class: 'ov-cta' }, t('overlay.cta')),
       h('p', { class: 'keys' }, t('overlay.keys', { key: restartKey })),
       this.message,
+      this.fsTip,
       h('button', {
         class: 'link',
         onclick: (e) => {

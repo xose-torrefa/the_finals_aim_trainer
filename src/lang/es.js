@@ -7,6 +7,9 @@ export default {
   'nav.settings': 'Ajustes',
   'menu.language': 'Idioma',
   'menu.keys': 'Clic izq: disparar · Clic der: ADS · WASD: moverse · {key}: reiniciar · Esc: pausa',
+  'fullscreen.enter': 'Pantalla completa',
+  'fullscreen.exit': 'Salir de pantalla completa',
+  'fullscreen.hint': 'Juega en pantalla completa: la vista solo coincide con la del juego si ocupa toda la pantalla.',
   'common.play': 'Jugar',
   'common.resume': 'Continuar',
   'common.quit': 'Abandonar',
@@ -17,6 +20,7 @@ export default {
   'overlay.cta': 'Haz clic para empezar',
   'overlay.keys': 'Clic izq: disparar · Clic der: ADS · {key}: reiniciar · Esc: pausa',
   'overlay.back': 'Volver al menú',
+  'overlay.fullscreen': 'Consejo: juega en pantalla completa (botón o F11) para que la vista sea la del juego.',
   'overlay.paused': 'Pausa',
   'overlay.restart': 'Reiniciar ({key})',
 
