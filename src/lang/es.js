@@ -57,6 +57,8 @@ export default {
   'scenario.peek.desc': 'Un enemigo asoma por detrás de tres coberturas, hace ADAD y vuelve a esconderse, sin recuperar vida. Pre-apunta a los bordes y castiga el peek.',
   'scenario.movetrack': 'Tracking en movimiento',
   'scenario.movetrack.desc': 'El tiempo en objetivo solo cuenta mientras te mueves con WASD. Muévete de lado sin perderlo de la mira.',
+  'scenario.rooftop': 'Desde el tejado',
+  'scenario.rooftop.desc': 'Estás al borde de un tejado de 12 m y el objetivo pasa por la calle, pegado a la fachada. Síguelo mirando hacia abajo: casi en vertical, cada paso de lado es un giro grande.',
   'chip.move': 'Movimiento WASD',
   'chip.freeFire': 'Cadencia libre',
 
