@@ -1,7 +1,8 @@
 import * as THREE from '/lib/three/three.module.js';
 import { Target, SphereTarget, pickClass, CLASSES } from './target.js';
-import { idealTTK, WEAPONS, SIGHTS } from './weapons.js';
+import { idealTTK, weaponName, sightName } from './weapons.js';
 import { DEG } from './settings.js';
+import { t } from './i18n.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pct = (a, b) => (b > 0 ? `${((100 * a) / b).toFixed(1)}%` : '—');
@@ -106,7 +107,7 @@ class TrackingScenario extends Scenario {
   }
 
   live(st) {
-    return `En objetivo ${pct(st.onTargetTime, st.time)} · Precisión ${pct(st.hits, st.shots)}`;
+    return t('live.tracking', { onTarget: pct(st.onTargetTime, st.time), acc: pct(st.hits, st.shots) });
   }
 
   score(st) {
@@ -116,11 +117,11 @@ class TrackingScenario extends Scenario {
 
   summary(st) {
     return [
-      ['Tiempo en objetivo', pct(st.onTargetTime, st.time)],
-      ['Precisión', pct(st.hits, st.shots)],
-      ['Headshots', pct(st.headshots, st.hits)],
-      ['Daño total', Math.round(st.damage)],
-      ['DPS', (st.damage / Math.max(st.time, 1e-6)).toFixed(1)],
+      ['sum.onTarget', pct(st.onTargetTime, st.time)],
+      ['sum.accuracy', pct(st.hits, st.shots)],
+      ['sum.headshots', pct(st.headshots, st.hits)],
+      ['sum.damage', Math.round(st.damage)],
+      ['sum.dps', (st.damage / Math.max(st.time, 1e-6)).toFixed(1)],
     ];
   }
 }
@@ -159,7 +160,7 @@ class EliminationScenario extends Scenario {
   }
 
   live(st) {
-    return `Kills ${st.kills} · TTK ${secs(avg(st.ttks))} · Precisión ${pct(st.hits, st.shots)}`;
+    return t('live.elimination', { kills: st.kills, ttk: secs(avg(st.ttks)), acc: pct(st.hits, st.shots) });
   }
 
   score(st) {
@@ -169,13 +170,13 @@ class EliminationScenario extends Scenario {
 
   summary(st) {
     return [
-      ['Kills', st.kills],
-      ['Tiempo por kill (desde aparición)', secs(avg(st.killTimes))],
-      ['Reacción (aparición → 1er impacto)', ms(avg(st.reactions))],
-      ['TTK (1er impacto → kill)', secs(avg(st.ttks))],
-      ['TTK ideal (todo al cuerpo)', secs(avg(st.idealTtks))],
-      ['Precisión', pct(st.hits, st.shots)],
-      ['Headshots', pct(st.headshots, st.hits)],
+      ['sum.kills', st.kills],
+      ['sum.killTime', secs(avg(st.killTimes))],
+      ['sum.reaction', ms(avg(st.reactions))],
+      ['sum.ttk', secs(avg(st.ttks))],
+      ['sum.idealTtk', secs(avg(st.idealTtks))],
+      ['sum.accuracy', pct(st.hits, st.shots)],
+      ['sum.headshots', pct(st.headshots, st.hits)],
     ];
   }
 }
@@ -204,7 +205,7 @@ class FlickScenario extends Scenario {
   }
 
   live(st) {
-    return `Kills ${st.kills} · ${ms(avg(st.killTimes))} · Precisión ${pct(st.hits, st.shots)}`;
+    return t('live.flick', { kills: st.kills, time: ms(avg(st.killTimes)), acc: pct(st.hits, st.shots) });
   }
 
   score(st) {
@@ -214,10 +215,10 @@ class FlickScenario extends Scenario {
 
   summary(st) {
     return [
-      ['Kills', st.kills],
-      ['Tiempo medio por objetivo', ms(avg(st.killTimes))],
-      ['Precisión', pct(st.hits, st.shots)],
-      ['Headshots', pct(st.headshots, st.hits)],
+      ['sum.kills', st.kills],
+      ['sum.targetTime', ms(avg(st.killTimes))],
+      ['sum.accuracy', pct(st.hits, st.shots)],
+      ['sum.headshots', pct(st.headshots, st.hits)],
     ];
   }
 }
@@ -242,7 +243,7 @@ class SphereFlickScenario extends Scenario {
   }
 
   live(st) {
-    return `Kills ${st.kills} · ${ms(avg(st.killTimes))} · Precisión ${pct(st.hits, st.shots)}`;
+    return t('live.flick', { kills: st.kills, time: ms(avg(st.killTimes)), acc: pct(st.hits, st.shots) });
   }
 
   score(st) {
@@ -252,9 +253,9 @@ class SphereFlickScenario extends Scenario {
 
   summary(st) {
     return [
-      ['Kills', st.kills],
-      ['Tiempo entre kills', ms(avg(st.killTimes))],
-      ['Precisión', pct(st.hits, st.shots)],
+      ['sum.kills', st.kills],
+      ['sum.betweenKills', ms(avg(st.killTimes))],
+      ['sum.accuracy', pct(st.hits, st.shots)],
     ];
   }
 }
@@ -342,18 +343,21 @@ export function scenarioSettings(settings, key, ranked) {
 export function fixedParts(key) {
   const def = SCENARIOS[key];
   const s = { ...RANKED_BASE, ...def.fixed };
-  const parts = [WEAPONS[s.weapon].name.split(' (')[0]];
-  if (s.sight !== 'weapon') parts.push(`Mira ${SIGHTS[s.sight].name.split(' (')[0]}`);
+  const parts = [weaponName(s.weapon, true)];
+  if (s.sight !== 'weapon') parts.push(t('chip.sight', { name: sightName(s.sight, true) }));
   if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
   parts.push(`${s.duration} s`);
   return parts;
 }
 
+// Textos en i18n: `scenario.<clave>` (nombre), `scenario.<clave>.desc` y `group.<grupo>`.
+export const scenarioName = (key) => t(`scenario.${key}`);
+export const scenarioDesc = (key) => t(`scenario.${key}.desc`);
+export const groupName = (group) => t(`group.${group}`);
+
 export const SCENARIOS = {
   tracking: {
-    group: 'Humanoides',
-    name: 'Tracking',
-    desc: 'Un objetivo inmortal hace strafe, salta y dashea. Mantén el ADS encima.',
+    group: 'humanoids',
     version: 1,
     fixed: { weapon: 'ar' },
     formatScore: percent,
@@ -365,14 +369,12 @@ export const SCENARIOS = {
     }),
   },
   closetrack: {
-    group: 'Humanoides',
-    name: 'Tracking cercano',
+    group: 'humanoids',
     version: 1,
     fixed: { weapon: 'smg', targetClass: 'light' },
     distanceLabel: '7 m',
     formatScore: percent,
     formatTick: percentTick,
-    desc: 'A 7 m, como un fight cuerpo a cuerpo: cambia de dirección sin parar, se acerca y se aleja, salta y dashea.',
     create: (ctx) => new TrackingScenario(ctx, (sc) => {
       const t = sc.newTarget({
         hp: Infinity,
@@ -383,66 +385,54 @@ export const SCENARIOS = {
     }),
   },
   duel: {
-    group: 'Humanoides',
-    name: 'Duelo',
+    group: 'humanoids',
     version: 1,
     fixed: { weapon: 'ar' },
     formatScore: kills,
     formatTick: killsTick,
-    desc: 'Un enemigo con la vida de su clase. Flick + ADS + tracking hasta matarlo.',
     create: (ctx) => new EliminationScenario(ctx, { count: 1, arc: 40, respawnDelay: 0.4 }),
   },
   switching: {
-    group: 'Humanoides',
-    name: 'Cambio de objetivo',
+    group: 'humanoids',
     version: 1,
     fixed: { weapon: 'ar' },
     formatScore: kills,
     formatTick: killsTick,
-    desc: 'Tres enemigos a la vez, como un fight de equipo. Mata y cambia rápido.',
     create: (ctx) => new EliminationScenario(ctx, { count: 3, arc: 45, respawnDelay: 0.6 }),
   },
   flick: {
-    group: 'Humanoides',
-    name: 'Flick ADS',
+    group: 'humanoids',
     version: 1,
     fixed: { weapon: 'revolver' },
     formatScore: kills,
     formatTick: killsTick,
-    desc: 'Objetivos estáticos de un impacto en un arco de 120°. Entra en ADS y dispara.',
     create: (ctx) => new FlickScenario(ctx),
   },
   gridshot: {
-    group: 'Esferas',
+    group: 'spheres',
     spheres: true,
-    name: 'Gridshot',
     version: 1,
     fixed: { weapon: 'dmr', sight: 'low' },
     formatScore: kills,
     formatTick: killsTick,
-    desc: 'Tres esferas a la vez en una cuadrícula. Al romper una aparece otra. Velocidad y ritmo.',
     create: (ctx) => new GridshotScenario(ctx),
   },
   precision: {
-    group: 'Esferas',
+    group: 'spheres',
     spheres: true,
-    name: 'Precisión',
     version: 1,
     fixed: { weapon: 'dmr', sight: 'low' },
     formatScore: kills,
     formatTick: killsTick,
-    desc: 'Una esfera pequeña que reaparece a pocos grados de la anterior. Microajustes en ADS.',
     create: (ctx) => new PrecisionScenario(ctx),
   },
   airtrack: {
-    group: 'Esferas',
+    group: 'spheres',
     spheres: true,
-    name: 'Tracking 3D',
     version: 1,
     fixed: { weapon: 'ar' },
     formatScore: percent,
     formatTick: percentTick,
-    desc: 'Una esfera flotante con trayectorias suaves en las tres dimensiones, también en vertical.',
     create: (ctx) => new TrackingScenario(ctx, (sc) => {
       const { player, settings } = ctx;
       const center = new THREE.Vector3(player.pos.x, player.pos.y + 1.5, player.pos.z - 12);

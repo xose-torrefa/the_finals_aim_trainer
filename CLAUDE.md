@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Aim trainer en three.js centrado en el ADS de The Finals. UI, comentarios y mensajes de commit en español.
+Aim trainer en three.js centrado en el ADS de The Finals. Comentarios y mensajes de commit en español. La UI está en inglés (por defecto) y en español (ver **`i18n.js`**).
 
 ## Comandos
 
@@ -62,18 +62,18 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
 **`settings.js`: ajustes**
-- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`, `hint`; tipos `select`, `checkbox`, `color`, `number` y `key`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
+- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`; tipos `select`, `checkbox`, `color`, `number` y `key`). El esquema no lleva textos: `section`/`tab` son ids (`section.<id>`), la etiqueta es `field.<text ?? key>` y la pista, si existe en el diccionario, `field.<…>.hint`; las opciones son `[valor, clave de texto]`. Añadir un ajuste = poner su valor por defecto + su campo en el esquema + sus textos en todos los idiomas.
 - La mira tiene dos perfiles con los mismos campos (`CROSSHAIR_KEYS`) y prefijos `crosshair*` / `adsCrosshair*`. `adsCrosshair` decide qué se ve en ADS: `dot` (hipfire sin líneas), `same` o `custom`. `crosshair.js` la dibuja con divs (capa de contorno + capa de relleno) y se usa tanto en el HUD como en la vista previa de Ajustes.
 - `loadSettings()` solo acepta valores guardados del mismo tipo que el default, y en los `select`, solo si siguen siendo una de las opciones.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 
 **`scenarios.js`: escenarios**
-- Registro `SCENARIOS`: `{ group, name, desc, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group`.
+- Registro `SCENARIOS`: `{ group, spheres?, version, fixed, distanceLabel?, formatScore, formatTick, create(ctx) }`. El menú los agrupa por `group` (un id: `humanoids`, `spheres`). Nombre y descripción van en los diccionarios (`scenarioName(key)`, `scenarioDesc(key)`, `groupName(group)`).
 - Una instancia de escenario implementa:
   - `targets` y `hitMeshes`.
   - `update(dt)`.
   - `onHit(target, part, { dealt, killed })`.
-  - `live(stats)`, `score(stats)`, `summary(stats)`.
+  - `live(stats)` (texto ya traducido), `score(stats)`, `summary(stats)` (pares `[clave de texto, valor]`, se traducen al mostrarlos).
   - `dispose()`.
 - Clases base:
   - `TrackingScenario` recibe un `makeTarget(scenario)`.
@@ -87,6 +87,12 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 **`audio.js`: sonido**
 - Todos los sonidos se sintetizan con Web Audio (`tone()` y `noise()`), sin ficheros. Hay variantes de disparo (`SHOT_SOUNDS`) y de impacto (`HIT_SOUNDS`), y cada categoría tiene su volumen (`shotVolume`, `hitVolume`, `killVolume`, `countdownVolume`), que se multiplica por `volume`.
 - Si añades un sonido, iguala su nivel con los demás: renderízalo con un `OfflineAudioContext` y compara el pico y el RMS.
+
+**`i18n.js`: idiomas**
+- `LANGUAGES` (`en` por defecto, `es`), un diccionario plano por idioma en `src/lang/` con las mismas claves. `t(key, params)` sustituye `{nombre}`; si falta una clave sale el inglés. `en.js` es la referencia (`hasText`).
+- El idioma es el ajuste `language` (selector en la barra lateral del menú). Al cambiarlo, `main.js` llama a `setLanguage` y `menu.rebuild()`.
+- **No llamar a `t()` al cargar un módulo** (constantes, esquema): los datos guardan claves y se traducen al renderizar. Los nombres de armas y miras se leen con `weaponName(key, short)` y `sightName(key, short)`.
+- Al añadir o cambiar un texto, ponlo en todos los diccionarios. Los términos del juego (Light/Medium/Heavy, ADS, hipfire, TTK, kills…) no se traducen.
 
 **`finals-save.js`: importar la configuración del juego**
 - Lee `EmbarkOptionSaveGame.sav` en el navegador. Es un save GVAS de Unreal con pares de FString (`int32` de longitud con el `\0` incluido, negativa si es UTF-16) de la forma `GameplayOption.*` → valor en texto.

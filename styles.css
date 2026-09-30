@@ -211,6 +211,16 @@ nav { display: grid; gap: 2px; }
 .pause-card .message:empty { display: none; }
 
 .sidebar .keys { margin-top: auto; padding: 0 10px; }
+.sidebar .language { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; color: var(--muted); font-size: 12px; }
+.sidebar .language select {
+  font: inherit;
+  padding: 4px 6px;
+  background: var(--input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.sidebar .language select:focus { outline: none; border-color: var(--accent); }
 
 .content { overflow-y: auto; }
 .page {
@@ -228,6 +238,7 @@ nav { display: grid; gap: 2px; }
   .nav-item { border-left: none; border-bottom: 3px solid transparent; border-radius: 0; }
   .nav-item.active { border-bottom-color: var(--accent); }
   .sidebar .keys { display: none; }
+  .sidebar .language { margin-left: auto; }
   .page { padding: 20px 16px 40px; }
 }
 

@@ -1,19 +1,9 @@
 // Sonidos sintetizados con Web Audio (sin ficheros externos). Cada categoría
 // tiene su volumen (`shotVolume`, `hitVolume`…), que se multiplica por el general.
 
-export const SHOT_SOUNDS = [
-  ['punch', 'Seco (rifle)'],
-  ['click', 'Clic mecánico'],
-  ['thump', 'Golpe grave'],
-  ['laser', 'Láser'],
-  ['soft', 'Ruido suave (el original)'],
-];
-
-export const HIT_SOUNDS = [
-  ['blip', 'Blip (el original)'],
-  ['tick', 'Tic limpio'],
-  ['ding', 'Campana'],
-];
+// Variantes de cada categoría; sus nombres están en i18n como `sound.<clave>`.
+export const SHOT_SOUNDS = ['punch', 'click', 'thump', 'laser', 'soft'];
+export const HIT_SOUNDS = ['blip', 'tick', 'ding'];
 
 // Pequeña variación de tono por disparo para que el fuego automático no canse
 const jitter = () => 0.95 + Math.random() * 0.1;

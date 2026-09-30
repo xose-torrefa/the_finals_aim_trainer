@@ -10,8 +10,9 @@ import { Sfx } from './audio.js';
 import { Impacts } from './impacts.js';
 import { Viewmodel } from './viewmodel.js';
 import { Tracers } from './tracers.js';
-import { SCENARIOS, createStats, scenarioSettings } from './scenarios.js';
+import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios.js';
 import { addEntry } from './history.js';
+import { t, setLanguage } from './i18n.js';
 
 const EYE_HEIGHT = 1.7;
 const ARENA_RADIUS = 12;
@@ -19,6 +20,7 @@ const ADS_MOVE_MULT = 0.6;
 const TRACER_START = 1; // m desde la cámara, en la dirección en que se ve la boca del cañón
 
 const settings = loadSettings();
+setLanguage(settings.language);
 try {
   localStorage.removeItem('finals-aim.best.v1'); // récords antiguos, sin configuración fija
 } catch { /* ignorar */ }
@@ -89,6 +91,10 @@ function onSettingChange(key) {
   if (key === 'tracers') tracers.clear();
   if (key === 'useRawUpdate') input.bindMoveEvent();
   if (key === 'adsMode') input.ads = false;
+  if (key === 'language') {
+    setLanguage(settings.language);
+    menu.rebuild();
+  }
   if (session) {
     // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
     session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
@@ -132,7 +138,7 @@ function startSession(key, ranked) {
   } else {
     state = 'ready';
     hud.hide();
-    overlay.showReady({ name: session.def.name, mode: ranked ? session.def.group : 'Sandbox', restartKey: keyLabel(settings.restartKey) });
+    overlay.showReady({ name: scenarioName(key), mode: ranked ? groupName(session.def.group) : 'Sandbox', restartKey: keyLabel(settings.restartKey) });
   }
 }
 
@@ -182,7 +188,7 @@ function beginCountdown() {
 
 function openSettingsFromPause() {
   overlay.hide();
-  menu.setPaused({ name: session.def.name });
+  menu.setPaused({ key: session.key });
   menu.show('settings');
 }
 
@@ -194,7 +200,7 @@ async function requestLock() {
     await input.lock();
   } catch {
     // Chrome bloquea volver a capturar el ratón ~1 s después de pulsar Esc
-    const msg = 'El navegador no ha dejado capturar el ratón. Espera un segundo y vuelve a intentarlo.';
+    const msg = t('lock.failed');
     overlay.setMessage(msg);
     menu.setMessage(msg);
   }
@@ -206,7 +212,7 @@ input.onLockChange = (locked) => {
   } else if (!locked && (state === 'playing' || state === 'countdown')) {
     state = 'paused';
     hud.hide();
-    overlay.showPause({ name: session.def.name, restartKey: keyLabel(settings.restartKey) });
+    overlay.showPause({ name: scenarioName(session.key), restartKey: keyLabel(settings.restartKey) });
   }
 };
 
@@ -243,12 +249,11 @@ function finishSession() {
     });
   }
   const rows = scenario.summary(stats);
-  const weaponName = ctx.weapon.name;
   input.unlock();
   hud.hide();
   overlay.hide();
   endScenario();
-  menu.showResults({ key, ranked, weaponName, score, rows });
+  menu.showResults({ key, ranked, weapon: ctx.weapon.key, score, rows });
 }
 
 // ---- Juego ----

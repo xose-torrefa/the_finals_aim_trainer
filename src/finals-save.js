@@ -4,6 +4,7 @@
 // FString (int32 longitud con el \0 incluido + texto + \0), clave y valor en texto.
 // Solo se lee en el navegador: nunca se modifica ni se envía a ningún sitio.
 import { SETTINGS_SCHEMA } from './settings.js';
+import { t } from './i18n.js';
 
 export const SAVE_PATH = '%LOCALAPPDATA%\\Discovery\\Saved\\SaveGames';
 const MAX_SIZE = 1024 * 1024;
@@ -38,11 +39,11 @@ function readFString(view, bytes, o) {
 
 /** Devuelve un Map con todas las opciones `GameplayOption.*` del save. */
 export function parseFinalsSave(buffer) {
-  if (buffer.byteLength > MAX_SIZE) throw new Error('El archivo es demasiado grande para ser el de opciones.');
+  if (buffer.byteLength > MAX_SIZE) throw new Error(t('import.tooBig'));
   const bytes = new Uint8Array(buffer);
   const view = new DataView(buffer);
   const magic = String.fromCharCode(...bytes.subarray(0, 4));
-  if (magic !== 'GVAS') throw new Error('No es un save de Unreal Engine (falta la cabecera GVAS).');
+  if (magic !== 'GVAS') throw new Error(t('import.notGvas'));
 
   const options = new Map();
   for (let o = 4; o < bytes.length - 8;) {
@@ -57,7 +58,7 @@ export function parseFinalsSave(buffer) {
     }
     o++;
   }
-  if (!options.size) throw new Error('No se han encontrado opciones de The Finals en el archivo.');
+  if (!options.size) throw new Error(t('import.noOptions'));
   return options;
 }
 

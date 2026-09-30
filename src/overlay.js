@@ -1,4 +1,5 @@
 import { h } from './dom.js';
+import { t } from './i18n.js';
 
 // Capa sobre la escena durante una partida: "clic para empezar", cuenta atrás
 // y menú de pausa. El menú completo (menu.js) solo se abre fuera de la partida
@@ -20,8 +21,8 @@ export class Overlay {
     this.show('ready', h('div', { class: 'ov-card' },
       h('span', { class: 'eyebrow' }, mode),
       h('h1', {}, name),
-      h('p', { class: 'ov-cta' }, 'Haz clic para empezar'),
-      h('p', { class: 'keys' }, `Clic izq: disparar · Clic der: ADS · ${restartKey}: reiniciar · Esc: pausa`),
+      h('p', { class: 'ov-cta' }, t('overlay.cta')),
+      h('p', { class: 'keys' }, t('overlay.keys', { key: restartKey })),
       this.message,
       h('button', {
         class: 'link',
@@ -29,7 +30,7 @@ export class Overlay {
           e.stopPropagation();
           this.handlers.onQuit();
         },
-      }, 'Volver al menú')));
+      }, t('overlay.back'))));
     this.root.onclick = () => this.handlers.onStart();
   }
 
@@ -51,13 +52,13 @@ export class Overlay {
     this.message.textContent = '';
     const btn = (label, fn, cls = '') => h('button', { class: cls, onclick: fn }, label);
     this.show('pause', h('div', { class: 'ov-card' },
-      h('span', { class: 'eyebrow' }, 'Pausa'),
+      h('span', { class: 'eyebrow' }, t('overlay.paused')),
       h('h1', {}, name),
       h('div', { class: 'ov-actions' },
-        btn('Continuar', () => this.handlers.onResume(), 'primary'),
-        btn(`Reiniciar (${restartKey})`, () => this.handlers.onRestart()),
-        btn('Ajustes', () => this.handlers.onSettings()),
-        btn('Abandonar', () => this.handlers.onQuit())),
+        btn(t('common.resume'), () => this.handlers.onResume(), 'primary'),
+        btn(t('overlay.restart', { key: restartKey }), () => this.handlers.onRestart()),
+        btn(t('nav.settings'), () => this.handlers.onSettings()),
+        btn(t('common.quit'), () => this.handlers.onQuit())),
       this.message));
   }
 

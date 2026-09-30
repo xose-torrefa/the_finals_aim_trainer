@@ -1,5 +1,7 @@
 // Gráfica de progreso: una sola serie (puntuación por partida) en SVG, con
 // cruceta y tooltip. Colores y trazos vienen de clases en styles.css (CSP).
+import { t, locale } from './i18n.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const PAD = { l: 40, r: 14, t: 18, b: 24 };
 
@@ -35,7 +37,7 @@ function niceTicks(min, max, count = 4) {
 export function progressChart(entries, format, tickFormat = (v) => String(v), { width: W = 460, height: H = 170 } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'chart';
-  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Puntuación por partida' });
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': t('chart.aria') });
   wrap.append(root);
 
   const scores = entries.map((e) => e.score);
@@ -48,10 +50,10 @@ export function progressChart(entries, format, tickFormat = (v) => String(v), { 
   const x = (i) => PAD.l + (n === 1 ? plotW / 2 : (i * plotW) / (n - 1));
   const y = (v) => PAD.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
 
-  for (const t of ticks) {
-    root.append(svg('line', { class: 'grid', x1: PAD.l, x2: W - PAD.r, y1: y(t), y2: y(t) }));
-    const label = svg('text', { class: 'tick', x: PAD.l - 6, y: y(t), 'text-anchor': 'end', 'dominant-baseline': 'middle' });
-    label.textContent = tickFormat(t);
+  for (const tick of ticks) {
+    root.append(svg('line', { class: 'grid', x1: PAD.l, x2: W - PAD.r, y1: y(tick), y2: y(tick) }));
+    const label = svg('text', { class: 'tick', x: PAD.l - 6, y: y(tick), 'text-anchor': 'end', 'dominant-baseline': 'middle' });
+    label.textContent = tickFormat(tick);
     root.append(label);
   }
   for (const [i, anchor] of [[0, 'start'], [n - 1, 'end']]) {
@@ -80,7 +82,7 @@ export function progressChart(entries, format, tickFormat = (v) => String(v), { 
     y: y(scores[best]) - 10,
     'text-anchor': best === 0 && n > 1 ? 'start' : best === n - 1 && n > 1 ? 'end' : 'middle',
   });
-  bestLabel.textContent = `Récord ${format(scores[best])}`;
+  bestLabel.textContent = t('chart.best', { score: format(scores[best]) });
   root.append(bestLabel);
 
   // Cruceta + tooltip: se engancha a la partida más cercana en X
@@ -103,12 +105,16 @@ export function progressChart(entries, format, tickFormat = (v) => String(v), { 
     hoverDot.setAttribute('cy', y(e.score));
     cross.classList.remove('hidden');
     hoverDot.classList.remove('hidden');
-    const date = new Date(e.t).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const date = new Date(e.t).toLocaleString(locale(), { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
     tip.replaceChildren(
       Object.assign(document.createElement('strong'), { textContent: `#${i + 1} · ${format(e.score)}` }),
       Object.assign(document.createElement('span'), { textContent: date }),
       Object.assign(document.createElement('span'), {
-        textContent: `Precisión ${Number.isFinite(e.accuracy) ? `${e.accuracy.toFixed(1)}%` : '—'} · ${e.cm360?.toFixed(1) ?? '—'} cm/360 · FOV ${e.fov ?? '—'}`,
+        textContent: t('chart.tip', {
+          acc: Number.isFinite(e.accuracy) ? `${e.accuracy.toFixed(1)}%` : '—',
+          cm: e.cm360?.toFixed(1) ?? '—',
+          fov: e.fov ?? '—',
+        }),
       }),
     );
     tip.classList.remove('hidden');

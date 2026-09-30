@@ -1,5 +1,6 @@
 import { WEAPONS, SIGHTS } from './weapons.js';
 import { SHOT_SOUNDS, HIT_SOUNDS } from './audio.js';
+import { LANGUAGES } from './i18n.js';
 
 export const DEG = Math.PI / 180;
 // v2: modo de sens de The Finals y sens de ADS en %. Los ajustes v1 se descartan.
@@ -31,6 +32,9 @@ export const CROSSHAIR_KEYS = Object.keys(CROSSHAIR_HIP);
 const prefixed = (prefix, o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [prefix + k, v]));
 
 export const DEFAULTS = {
+  // Idioma de la UI (ver i18n.js)
+  language: 'en',
+
   // Sensibilidad
   sensMode: 'finals',
   dpi: 400,
@@ -97,141 +101,151 @@ export const DEFAULTS = {
   countdownVolume: 1,
 };
 
-/** Campos del formulario de un perfil de mira. */
+/** Campos del formulario de un perfil de mira. Los dos perfiles comparten textos (`field.ch*`). */
 function crosshairFields(prefix, showIf = () => true) {
   const k = (name) => prefix + name;
   const when = (flag) => (s) => showIf(s) && (!flag || s[k(flag)]);
+  const field = (name, props, flag) => ({ key: k(name), text: `ch${name}`, showIf: when(flag), ...props });
   return [
-    { key: k('Color'), label: 'Color de la mira', type: 'color', showIf: when() },
-    { key: k('Opacity'), label: 'Opacidad', type: 'number', min: 0.05, max: 1, step: 0.05, showIf: when() },
-    { key: k('Lines'), label: 'Líneas', type: 'checkbox', showIf: when() },
-    { key: k('Length'), label: 'Longitud (px)', type: 'number', min: 1, max: 50, step: 1, showIf: when('Lines') },
-    { key: k('Thickness'), label: 'Grosor (px)', type: 'number', min: 1, max: 10, step: 1, showIf: when('Lines') },
-    { key: k('Gap'), label: 'Separación (px)', type: 'number', min: 0, max: 50, step: 1, showIf: when('Lines'), hint: 'Hueco entre el cruce central y cada línea.' },
-    { key: k('TStyle'), label: 'Estilo T', type: 'checkbox', showIf: when('Lines'), hint: 'Sin la línea de arriba.' },
-    { key: k('Dot'), label: 'Punto central', type: 'checkbox', showIf: when() },
-    { key: k('DotSize'), label: 'Tamaño del punto (px)', type: 'number', min: 1, max: 16, step: 1, showIf: when('Dot') },
-    { key: k('Outline'), label: 'Contorno', type: 'checkbox', showIf: when() },
-    { key: k('OutlineWidth'), label: 'Grosor del contorno (px)', type: 'number', min: 1, max: 4, step: 1, showIf: when('Outline') },
-    { key: k('OutlineOpacity'), label: 'Opacidad del contorno', type: 'number', min: 0.05, max: 1, step: 0.05, showIf: when('Outline') },
+    field('Color', { type: 'color' }),
+    field('Opacity', { type: 'number', min: 0.05, max: 1, step: 0.05 }),
+    field('Lines', { type: 'checkbox' }),
+    field('Length', { type: 'number', min: 1, max: 50, step: 1 }, 'Lines'),
+    field('Thickness', { type: 'number', min: 1, max: 10, step: 1 }, 'Lines'),
+    field('Gap', { type: 'number', min: 0, max: 50, step: 1 }, 'Lines'),
+    field('TStyle', { type: 'checkbox' }, 'Lines'),
+    field('Dot', { type: 'checkbox' }),
+    field('DotSize', { type: 'number', min: 1, max: 16, step: 1 }, 'Dot'),
+    field('Outline', { type: 'checkbox' }),
+    field('OutlineWidth', { type: 'number', min: 1, max: 4, step: 1 }, 'Outline'),
+    field('OutlineOpacity', { type: 'number', min: 0.05, max: 1, step: 0.05 }, 'Outline'),
   ];
 }
+
+/** Opciones `[valor, clave de texto]` de un desplegable con textos `<prefijo>.<valor>`. */
+const opts = (prefix, values) => values.map((v) => [v, `${prefix}.${v}`]);
 
 // Esquema que usa el menú para generar los formularios. `page` indica en qué
 // página va cada sección: 'settings' (lo personal, se aplica en ambos modos) o
 // 'sandbox' (solo en Sandbox; en Escenarios lo fija cada escenario). Las
 // secciones con el mismo `tab` se muestran juntas en la página de Ajustes.
+// Los textos salen de i18n: `section.<id>` para secciones y pestañas,
+// `field.<text ?? key>` y `field.<…>.hint` para los campos, y las opciones son
+// pares `[valor, clave de texto]`.
 export const SETTINGS_SCHEMA = [
   {
-    section: 'Sensibilidad',
+    section: 'sensitivity',
     page: 'settings',
     fields: [
-      { key: 'sensMode', label: 'Modo', type: 'select', options: [['finals', 'Sens de The Finals'], ['cm360', 'cm/360'], ['game', 'Sens × yaw personalizado']] },
-      { key: 'dpi', label: 'DPI', type: 'number', min: 100, max: 32000, step: 50 },
-      { key: 'cm360', label: 'cm/360 hipfire', type: 'number', min: 1, max: 300, step: 0.1, showIf: (s) => s.sensMode === 'cm360' },
-      { key: 'gameSens', label: 'Sens del juego', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode !== 'cm360' },
-      { key: 'gameYaw', label: 'Yaw (°/count a sens 1)', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game', hint: 'Constante del juego a convertir (The Finals = 0.001).' },
-      { key: 'adsSensPct', label: 'Sensibilidad ADS (%)', type: 'number', min: 1, max: 500, step: 1 },
-      { key: 'sniperSensPct', label: 'Sensibilidad francotirador (%)', type: 'number', min: 1, max: 500, step: 1, hint: 'En The Finals la mira del francotirador tiene su propio multiplicador.' },
-      { key: 'focalScaling', label: 'Mouse Focal Length Sensitivity Scaling', type: 'checkbox', hint: 'ON: la sens de ADS además se reduce según el FOV de la mira (0% monitor distance).' },
-      { key: 'useRawUpdate', label: 'pointerrawupdate', type: 'checkbox', hint: 'Menor latencia en Chromium. Desactívalo si notas saltos.' },
+      { key: 'sensMode', type: 'select', options: opts('sensMode', ['finals', 'cm360', 'game']) },
+      { key: 'dpi', type: 'number', min: 100, max: 32000, step: 50 },
+      { key: 'cm360', type: 'number', min: 1, max: 300, step: 0.1, showIf: (s) => s.sensMode === 'cm360' },
+      { key: 'gameSens', type: 'number', min: 0.001, max: 100, step: 0.001, showIf: (s) => s.sensMode !== 'cm360' },
+      { key: 'gameYaw', type: 'number', min: 0.00001, max: 10, step: 0.00001, showIf: (s) => s.sensMode === 'game' },
+      { key: 'adsSensPct', type: 'number', min: 1, max: 500, step: 1 },
+      { key: 'sniperSensPct', type: 'number', min: 1, max: 500, step: 1 },
+      { key: 'focalScaling', type: 'checkbox' },
+      { key: 'useRawUpdate', type: 'checkbox' },
     ],
   },
   {
-    section: 'FOV y ADS',
+    section: 'fovAds',
     page: 'settings',
     fields: [
-      { key: 'fov', label: 'FOV', type: 'number', min: 30, max: 150, step: 1 },
-      { key: 'fovType', label: 'Tipo de FOV', type: 'select', options: [['v', 'Vertical (The Finals)'], ['h16:9', 'Horizontal 16:9'], ['hActual', 'Horizontal (aspecto real)']] },
-      { key: 'adsMode', label: 'ADS', type: 'select', options: [['hold', 'Mantener'], ['toggle', 'Alternar']] },
+      { key: 'fov', type: 'number', min: 30, max: 150, step: 1 },
+      { key: 'fovType', type: 'select', options: opts('fovType', ['v', 'h16:9', 'hActual']) },
+      { key: 'adsMode', type: 'select', options: opts('adsMode', ['hold', 'toggle']) },
     ],
   },
   {
-    section: 'Partida',
+    section: 'game',
     page: 'settings',
     fields: [
-      { key: 'countdown', label: 'Cuenta atrás (s)', type: 'number', min: 0, max: 10, step: 0.5, hint: 'Al empezar, al reiniciar y al volver de la pausa. 0 = sin cuenta atrás.' },
-      { key: 'restartKey', label: 'Reiniciar escenario', type: 'key', hint: 'Reinicia la partida en curso, también desde la pausa y los resultados.' },
+      { key: 'countdown', type: 'number', min: 0, max: 10, step: 0.5 },
+      { key: 'restartKey', type: 'key' },
     ],
   },
   {
-    section: 'Mira en hipfire',
-    tab: 'Mira',
+    section: 'crosshairHip',
+    tab: 'crosshair',
     page: 'settings',
     fields: crosshairFields('crosshair'),
   },
   {
-    section: 'Mira en ADS',
-    tab: 'Mira',
+    section: 'crosshairAds',
+    tab: 'crosshair',
     page: 'settings',
     fields: [
-      { key: 'adsCrosshair', label: 'Al hacer ADS', type: 'select', options: [['dot', 'La de hipfire sin líneas'], ['same', 'La misma que en hipfire'], ['custom', 'Una distinta']], hint: 'Cambia gradualmente con el progreso del ADS.' },
+      { key: 'adsCrosshair', type: 'select', options: opts('adsCrosshair', ['dot', 'same', 'custom']) },
       ...crosshairFields('adsCrosshair', (s) => s.adsCrosshair === 'custom'),
     ],
   },
   {
-    section: 'Arma y efectos',
+    section: 'weaponFx',
     page: 'settings',
     fields: [
-      { key: 'viewmodel', label: 'Mostrar el arma', type: 'checkbox', hint: 'Con visores (High y francotirador) se oculta al completar el ADS.' },
-      { key: 'viewmodelFov', label: 'FOV del arma', type: 'number', min: 40, max: 100, step: 1, showIf: (s) => s.viewmodel, hint: 'Solo cambia el tamaño del arma en pantalla, no el FOV de la vista.' },
-      { key: 'viewmodelSway', label: 'Inercia y balanceo del arma', type: 'checkbox', showIf: (s) => s.viewmodel },
-      { key: 'muzzleFlash', label: 'Fogonazo', type: 'checkbox' },
-      { key: 'tracers', label: 'Trazadoras', type: 'checkbox', hint: 'Solo visuales: la bala ya ha impactado en el centro de la mira.' },
-      { key: 'tracerColor', label: 'Color de las trazadoras', type: 'color', showIf: (s) => s.tracers },
+      { key: 'viewmodel', type: 'checkbox' },
+      { key: 'viewmodelFov', type: 'number', min: 40, max: 100, step: 1, showIf: (s) => s.viewmodel },
+      { key: 'viewmodelSway', type: 'checkbox', showIf: (s) => s.viewmodel },
+      { key: 'muzzleFlash', type: 'checkbox' },
+      { key: 'tracers', type: 'checkbox' },
+      { key: 'tracerColor', type: 'color', showIf: (s) => s.tracers },
     ],
   },
   {
-    section: 'Vídeo',
+    section: 'video',
     page: 'settings',
     fields: [
-      { key: 'renderScale', label: 'Escala de render', type: 'number', min: 0.25, max: 2, step: 0.05 },
-      { key: 'showFps', label: 'Mostrar FPS', type: 'checkbox' },
+      { key: 'renderScale', type: 'number', min: 0.25, max: 2, step: 0.05 },
+      { key: 'showFps', type: 'checkbox' },
     ],
   },
   {
-    section: 'Audio',
+    section: 'audio',
     page: 'settings',
     fields: [
-      { key: 'volume', label: 'Volumen general', type: 'number', min: 0, max: 1, step: 0.05 },
-      { key: 'shotSound', label: 'Sonido de disparo', type: 'select', options: SHOT_SOUNDS },
-      { key: 'shotVolume', label: 'Volumen de disparos', type: 'number', min: 0, max: 1, step: 0.05, hint: '0 = silenciados.' },
-      { key: 'hitSound', label: 'Sonido de impacto', type: 'select', options: HIT_SOUNDS },
-      { key: 'hitVolume', label: 'Volumen de impactos', type: 'number', min: 0, max: 1, step: 0.05, hint: 'Cuerpo y headshot. 0 = silenciados.' },
-      { key: 'killVolume', label: 'Volumen de eliminaciones', type: 'number', min: 0, max: 1, step: 0.05 },
-      { key: 'countdownVolume', label: 'Volumen de la cuenta atrás', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'volume', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'shotSound', type: 'select', options: opts('sound', SHOT_SOUNDS) },
+      { key: 'shotVolume', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'hitSound', type: 'select', options: opts('sound', HIT_SOUNDS) },
+      { key: 'hitVolume', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'killVolume', type: 'number', min: 0, max: 1, step: 0.05 },
+      { key: 'countdownVolume', type: 'number', min: 0, max: 1, step: 0.05 },
     ],
   },
   {
-    section: 'Arma',
+    section: 'weapon',
     page: 'sandbox',
     fields: [
-      { key: 'weapon', label: 'Arma', type: 'select', options: Object.entries(WEAPONS).map(([k, w]) => [k, w.name]) },
-      { key: 'sight', label: 'Mira', type: 'select', options: [['weapon', 'La del arma'], ...Object.entries(SIGHTS).map(([k, m]) => [k, m.name])] },
-      { key: 'adsTimeOverride', label: 'Tiempo ADS ms (0 = arma)', type: 'number', min: 0, max: 2000, step: 10 },
+      { key: 'weapon', type: 'select', options: opts('weapon', Object.keys(WEAPONS)) },
+      { key: 'sight', type: 'select', options: opts('sight', ['weapon', ...Object.keys(SIGHTS)]) },
+      { key: 'adsTimeOverride', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },
   {
-    section: 'Objetivos',
+    section: 'targets',
     page: 'sandbox',
     fields: [
-      { key: 'targetClass', label: 'Clase', type: 'select', options: [['light', 'Light (150 HP)'], ['medium', 'Medium (250 HP)'], ['heavy', 'Heavy (350 HP)'], ['random', 'Aleatoria']] },
-      { key: 'targetDistance', label: 'Distancia (m)', type: 'number', min: 3, max: 120, step: 1 },
-      { key: 'targetSpeed', label: 'Velocidad ×', type: 'number', min: 0, max: 3, step: 0.05 },
-      { key: 'targetJumps', label: 'Saltos / dashes', type: 'checkbox' },
-      { key: 'sphereScale', label: 'Tamaño esferas ×', type: 'number', min: 0.25, max: 4, step: 0.05 },
+      { key: 'targetClass', type: 'select', options: opts('targetClass', ['light', 'medium', 'heavy', 'random']) },
+      { key: 'targetDistance', type: 'number', min: 3, max: 120, step: 1 },
+      { key: 'targetSpeed', type: 'number', min: 0, max: 3, step: 0.05 },
+      { key: 'targetJumps', type: 'checkbox' },
+      { key: 'sphereScale', type: 'number', min: 0.25, max: 4, step: 0.05 },
     ],
   },
   {
-    section: 'Jugador y sesión',
+    section: 'player',
     page: 'sandbox',
     fields: [
-      { key: 'allowMove', label: 'Moverse (WASD)', type: 'checkbox' },
-      { key: 'moveSpeed', label: 'Velocidad (m/s)', type: 'number', min: 0, max: 15, step: 0.1 },
-      { key: 'duration', label: 'Duración (s)', type: 'number', min: 10, max: 600, step: 5 },
+      { key: 'allowMove', type: 'checkbox' },
+      { key: 'moveSpeed', type: 'number', min: 0, max: 15, step: 0.1 },
+      { key: 'duration', type: 'number', min: 10, max: 600, step: 5 },
     ],
   },
 ];
+
+/** Clave de texto de un campo del esquema (su pista es la misma + '.hint'). */
+export const fieldText = (f) => `field.${f.text ?? f.key}`;
 
 /** Nombre legible de un `KeyboardEvent.code` ('KeyR' → 'R'). */
 export function keyLabel(code) {
@@ -251,6 +265,7 @@ export function loadSettings() {
   for (const f of SETTINGS_SCHEMA.flatMap((g) => g.fields)) {
     if (f.type === 'select' && !f.options.some(([v]) => v === s[f.key])) s[f.key] = DEFAULTS[f.key];
   }
+  if (!LANGUAGES.some((l) => l.code === s.language)) s.language = DEFAULTS.language;
   return s;
 }
 

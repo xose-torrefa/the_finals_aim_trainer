@@ -1,24 +1,22 @@
 import { h } from './dom.js';
-import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
-import { SIGHTS, resolveWeapon } from './weapons.js';
-import { SCENARIOS, fixedParts } from './scenarios.js';
+import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, fieldText, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { SIGHTS, resolveWeapon, weaponName, sightName } from './weapons.js';
+import { SCENARIOS, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios.js';
 import { getHistory } from './history.js';
 import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
+import { t, hasText, locale, LANGUAGES } from './i18n.js';
 
-const FIELD_LABELS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f.label]));
+const FIELDS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f]));
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
-const CROSSHAIR_TAB = 'Mira';
-const AUDIO_TAB = 'Audio';
-const SOUND_TESTS = [['shot', 'Disparo'], ['hit', 'Impacto'], ['head', 'Headshot'], ['kill', 'Eliminación'], ['countdown', 'Cuenta atrás']];
+const CROSSHAIR_TAB = 'crosshair';
+const AUDIO_TAB = 'audio';
+const IMPORT_TAB = 'import';
+const SOUND_TESTS = ['shot', 'hit', 'head', 'kill', 'countdown'];
 const tabOf = (g) => g.tab ?? g.section;
 
-const NAV = [
-  ['scenarios', 'Escenarios'],
-  ['sandbox', 'Sandbox'],
-  ['settings', 'Ajustes'],
-];
+const NAV = ['scenarios', 'sandbox', 'settings'];
 
 const GROUPS = Map.groupBy(Object.entries(SCENARIOS), ([, sc]) => sc.group);
 
@@ -26,7 +24,7 @@ const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const round1 = (x) => Math.round(x * 10) / 10;
 const pctText = (x) => (Number.isFinite(x) ? `${x.toFixed(1)}%` : '—');
 const numText = (x) => (Number.isFinite(x) ? x.toFixed(1) : '—');
-const dateText = (t, year = false) => new Date(t).toLocaleString('es-ES', {
+const dateText = (time, year = false) => new Date(time).toLocaleString(locale(), {
   day: '2-digit', month: '2-digit', year: year ? '2-digit' : undefined, hour: '2-digit', minute: '2-digit',
 });
 
@@ -55,22 +53,35 @@ export class Menu {
   // ---------- Estructura y navegación ----------
 
   buildShell() {
-    this.navButtons = NAV.map(([page, label]) => {
-      const b = h('button', { class: 'nav-item', onclick: () => this.navigate(page) }, label);
+    this.navButtons = NAV.map((page) => {
+      const b = h('button', { class: 'nav-item', onclick: () => this.navigate(page) }, t(`nav.${page}`));
       b.dataset.page = page;
       return b;
     });
     this.pauseCard = h('div', { class: 'pause-card hidden' });
     this.keysHint = h('p', { class: 'keys' });
     this.content = h('main', { class: 'content' });
+    const language = h('select', {},
+      LANGUAGES.map((l) => h('option', { value: l.code, selected: this.settings.language === l.code }, l.name)));
+    language.addEventListener('change', () => this.set('language', language.value));
     this.root.replaceChildren(
       h('aside', { class: 'sidebar' },
         h('div', { class: 'brand' }, 'FINALS ', h('span', {}, 'AIM')),
         h('nav', {}, this.navButtons),
         this.pauseCard,
-        this.keysHint),
+        this.keysHint,
+        h('label', { class: 'language' }, h('span', {}, t('menu.language')), language)),
       this.content,
     );
+  }
+
+  /** Reconstruye el menú entero con los textos del idioma actual, sin cambiar de página. */
+  rebuild() {
+    const scroll = this.content.scrollTop;
+    this.buildShell();
+    this.setPaused(this.paused);
+    this.render();
+    this.content.scrollTop = scroll;
   }
 
   /** @param page 'scenarios' | 'scenario' | 'sandbox' | 'settings' | 'results' */
@@ -106,7 +117,7 @@ export class Menu {
     if (this.readout) this.readout.replaceChildren(...this.readoutRows());
     if (this.weaponInfo) this.weaponInfo.replaceChildren(this.weaponRows());
     if (this.chPreview) this.updateCrosshairPreview();
-    this.keysHint.textContent = `Clic izq: disparar · Clic der: ADS · WASD: moverse · ${keyLabel(s.restartKey)}: reiniciar · Esc: pausa`;
+    this.keysHint.textContent = t('menu.keys', { key: keyLabel(s.restartKey) });
   }
 
   /** Muestra en la barra lateral la partida en pausa (al abrir los ajustes desde la pausa). */
@@ -115,10 +126,10 @@ export class Menu {
     this.pauseCard.classList.toggle('hidden', !info);
     if (!info) return;
     this.pauseCard.replaceChildren(
-      h('span', { class: 'eyebrow' }, 'Partida en pausa'),
-      h('strong', {}, info.name),
-      h('button', { class: 'primary', onclick: () => this.handlers.onResume() }, 'Continuar'),
-      h('button', { onclick: () => this.handlers.onQuit() }, 'Abandonar'),
+      h('span', { class: 'eyebrow' }, t('pause.card')),
+      h('strong', {}, scenarioName(info.key)),
+      h('button', { class: 'primary', onclick: () => this.handlers.onResume() }, t('common.resume')),
+      h('button', { onclick: () => this.handlers.onQuit() }, t('common.quit')),
       this.pauseMessage = h('p', { class: 'message' }),
     );
   }
@@ -132,11 +143,10 @@ export class Menu {
   renderScenarios() {
     return [
       h('header', { class: 'page-head' },
-        h('h1', {}, 'Escenarios'),
-        h('p', { class: 'lead' }, 'Cada escenario tiene arma, objetivos y duración fijos para que las puntuaciones sean comparables. ',
-          'Sens, FOV y ADS son siempre los tuyos. Cada partida se guarda en tu historial.')),
+        h('h1', {}, t('nav.scenarios')),
+        h('p', { class: 'lead' }, t('scenarios.lead'))),
       [...GROUPS].map(([group, entries]) => h('section', { class: 'group' },
-        h('h2', {}, group),
+        h('h2', {}, groupName(group)),
         h('div', { class: 'cards' }, entries.map(([key, def]) => this.scenarioCard(key, def))))),
     ];
   }
@@ -151,34 +161,34 @@ export class Menu {
       onclick: open,
       onkeydown: (e) => { if (e.key === 'Enter') open(); },
     },
-    h('h3', {}, def.name),
-    h('p', { class: 'desc' }, def.desc),
+    h('h3', {}, scenarioName(key)),
+    h('p', { class: 'desc' }, scenarioDesc(key)),
     chips(fixedParts(key)),
     h('div', { class: 'card-foot' },
-      h('div', { class: 'mini-stat' }, h('span', {}, 'Récord'), h('strong', {}, best)),
-      h('div', { class: 'mini-stat' }, h('span', {}, 'Partidas'), h('strong', {}, String(entries.length))),
+      h('div', { class: 'mini-stat' }, h('span', {}, t('stat.best')), h('strong', {}, best)),
+      h('div', { class: 'mini-stat' }, h('span', {}, t('stat.runs')), h('strong', {}, String(entries.length))),
       h('button', {
         class: 'primary play',
         onclick: (e) => {
           e.stopPropagation();
           this.handlers.onPlay(key, true);
         },
-      }, 'Jugar')));
+      }, t('common.play'))));
   }
 
   renderScenario(key) {
     const def = SCENARIOS[key];
     const entries = getHistory(key, def);
     return [
-      h('button', { class: 'back', onclick: () => this.navigate('scenarios') }, '← Escenarios'),
+      h('button', { class: 'back', onclick: () => this.navigate('scenarios') }, t('scenarios.back')),
       h('header', { class: 'page-head detail-head' },
         h('div', {},
-          h('span', { class: 'eyebrow' }, def.group),
-          h('h1', {}, def.name),
-          h('p', { class: 'lead' }, def.desc),
+          h('span', { class: 'eyebrow' }, groupName(def.group)),
+          h('h1', {}, scenarioName(key)),
+          h('p', { class: 'lead' }, scenarioDesc(key)),
           chips(fixedParts(key))),
-        h('button', { class: 'primary big', onclick: () => this.handlers.onPlay(key, true) }, 'Jugar')),
-      entries.length ? this.statsBlock(def, entries) : card(null, h('p', { class: 'empty' }, 'Aún no has jugado este escenario. Tus partidas aparecerán aquí.')),
+        h('button', { class: 'primary big', onclick: () => this.handlers.onPlay(key, true) }, t('common.play'))),
+      entries.length ? this.statsBlock(def, entries) : card(null, h('p', { class: 'empty' }, t('scenarios.empty'))),
     ];
   }
 
@@ -192,16 +202,16 @@ export class Menu {
     const rows = entries.map((e, i) => ({ e, i })).slice(-25).reverse();
     return [
       h('div', { class: 'tiles' },
-        tile('Partidas', String(entries.length)),
-        tile('Récord', fmt(scores[bestIdx]), 'accent'),
-        tile(`Media últ. ${recent.length}`, fmt(round1(avg(recent.map((e) => e.score))))),
-        tile('Última', fmt(scores.at(-1))),
-        tile(`Precisión últ. ${recent.length}`, accs.length ? pctText(avg(accs)) : '—')),
-      card('Progreso', progressChart(entries, fmt, def.formatTick, { width: 860, height: 240 })),
-      card('Historial',
+        tile(t('stat.runs'), String(entries.length)),
+        tile(t('stat.best'), fmt(scores[bestIdx]), 'accent'),
+        tile(t('stat.avgLast', { n: recent.length }), fmt(round1(avg(recent.map((e) => e.score))))),
+        tile(t('stat.last'), fmt(scores.at(-1))),
+        tile(t('stat.accLast', { n: recent.length }), accs.length ? pctText(avg(accs)) : '—')),
+      card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 240 })),
+      card(t('card.history'),
         h('table', { class: 'history' },
           h('thead', {}, h('tr', {},
-            h('th', {}, '#'), h('th', {}, 'Fecha'), h('th', { class: 'num' }, 'Puntuación'), h('th', { class: 'num' }, 'Precisión'),
+            h('th', {}, '#'), h('th', {}, t('col.date')), h('th', { class: 'num' }, t('col.score')), h('th', { class: 'num' }, t('col.accuracy')),
             h('th', { class: 'num' }, 'cm/360'), h('th', { class: 'num' }, 'cm/360 ADS'), h('th', { class: 'num' }, 'FOV'))),
           h('tbody', {}, rows.map(({ e, i }) => h('tr', { class: i === bestIdx ? 'best' : '' },
           h('td', { class: 'muted' }, String(i + 1)),
@@ -211,7 +221,7 @@ export class Menu {
           num(numText(e.cm360)),
           num(numText(e.adsCm360)),
           num(e.fov ?? '—'))))),
-        entries.length > rows.length && h('p', { class: 'muted small' }, `Mostrando las últimas ${rows.length} de ${entries.length} partidas.`)),
+        entries.length > rows.length && h('p', { class: 'muted small' }, t('history.showing', { shown: rows.length, total: entries.length }))),
     ];
   }
 
@@ -220,33 +230,33 @@ export class Menu {
   renderSandbox() {
     const s = this.settings;
     const list = [...GROUPS].map(([group, entries]) => [
-      h('h3', {}, group),
-      h('div', { class: 'pick-grid' }, entries.map(([key, def]) => h('label', { class: 'pick', title: def.desc },
+      h('h3', {}, groupName(group)),
+      h('div', { class: 'pick-grid' }, entries.map(([key]) => h('label', { class: 'pick', title: scenarioDesc(key) },
         h('input', { type: 'radio', name: 'sandbox-scenario', value: key, checked: s.scenario === key, onchange: () => this.set('scenario', key) }),
-        h('strong', {}, def.name)))),
+        h('strong', {}, scenarioName(key))))),
     ]);
     this.weaponInfo = h('div');
     return [
       h('header', { class: 'page-head' },
-        h('h1', {}, 'Sandbox'),
-        h('p', { class: 'lead' }, 'Cualquier escenario con arma, objetivos y duración a tu gusto. Las partidas no se guardan en el historial.')),
+        h('h1', {}, t('nav.sandbox')),
+        h('p', { class: 'lead' }, t('sandbox.lead'))),
       h('div', { class: 'split' },
         h('div', { class: 'stack' },
-          card('Escenario', list),
+          card(t('sandbox.scenario'), list),
           this.schemaCards('sandbox')),
         h('aside', { class: 'stack sticky' },
-          card('Arma efectiva', this.weaponInfo),
-          h('button', { class: 'primary big', onclick: () => this.handlers.onPlay(s.scenario, false) }, 'Jugar en Sandbox'))),
+          card(t('sandbox.weapon'), this.weaponInfo),
+          h('button', { class: 'primary big', onclick: () => this.handlers.onPlay(s.scenario, false) }, t('sandbox.play')))),
     ];
   }
 
   weaponRows() {
     const w = resolveWeapon(this.settings);
     return this.dl([
-      ['Arma', w.name.split(' (')[0]],
-      ['Mira', `${SIGHTS[w.sight].name.split(' (')[0]} · ${Math.round(w.fovMult * 100)}% FOV`],
-      ['Tiempo ADS', `${Math.round(w.adsTime * 1000)} ms`],
-      ['Cadencia', `${w.rpm} RPM${w.auto ? ' · auto' : ''}`],
+      [t('info.weapon'), weaponName(w.key, true)],
+      [t('info.sight'), `${sightName(w.sight, true)} · ${Math.round(w.fovMult * 100)}% FOV`],
+      [t('info.adsTime'), `${Math.round(w.adsTime * 1000)} ms`],
+      [t('info.fireRate'), `${w.rpm} RPM${w.auto ? ' · auto' : ''}`],
     ]);
   }
 
@@ -254,41 +264,40 @@ export class Menu {
 
   renderSettings() {
     this.readout = h('div', { class: 'readout-wrap' });
-    const IMPORT = 'Importar de The Finals';
-    const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT];
+    const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT_TAB];
     const active = tabs.includes(this.settingsTab) ? this.settingsTab : tabs[0];
-    const body = active === IMPORT
+    const body = active === IMPORT_TAB
       ? this.buildImport()
       : this.schemaCards('settings', active);
     return [
       h('header', { class: 'page-head' },
-        h('h1', {}, 'Ajustes'),
-        h('p', { class: 'lead' }, 'Tu configuración personal. Se aplica en Escenarios y en Sandbox, y al momento si hay una partida en pausa.')),
+        h('h1', {}, t('nav.settings')),
+        h('p', { class: 'lead' }, t('settings.lead'))),
       h('div', { class: 'split' },
         h('div', { class: 'stack' },
-          h('div', { class: 'subtabs', role: 'tablist' }, tabs.map((t) => h('button', {
-            class: t === active ? 'active' : '',
+          h('div', { class: 'subtabs', role: 'tablist' }, tabs.map((tab) => h('button', {
+            class: tab === active ? 'active' : '',
             role: 'tab',
             onclick: () => {
-              this.settingsTab = t;
+              this.settingsTab = tab;
               this.render();
             },
-          }, t))),
+          }, t(`section.${tab}`)))),
           body),
         h('aside', { class: 'stack sticky' },
           active === CROSSHAIR_TAB && this.buildCrosshairPreview(),
-          active === AUDIO_TAB && card('Probar sonidos',
-            h('div', { class: 'actions' }, SOUND_TESTS.map(([kind, label]) => h('button', { onclick: () => this.handlers.onSound(kind) }, label)))),
-          card('Valores efectivos', this.readout))),
+          active === AUDIO_TAB && card(t('settings.testSounds'),
+            h('div', { class: 'actions' }, SOUND_TESTS.map((kind) => h('button', { onclick: () => this.handlers.onSound(kind) }, t(`test.${kind}`))))),
+          card(t('settings.effective'), this.readout))),
     ];
   }
 
   buildCrosshairPreview() {
     this.chPreview = { hip: new Crosshair(), ads: new Crosshair() };
     const box = (label, ch) => h('div', { class: 'ch-preview' }, h('span', {}, label), ch.el);
-    return card('Vista previa',
+    return card(t('settings.preview'),
       h('div', { class: 'ch-previews' }, box('Hipfire', this.chPreview.hip), box('ADS', this.chPreview.ads)),
-      h('div', { class: 'actions' }, h('button', { onclick: () => this.copyCrosshairToAds() }, 'Copiar la de hipfire a ADS')));
+      h('div', { class: 'actions' }, h('button', { onclick: () => this.copyCrosshairToAds() }, t('settings.copyToAds'))));
   }
 
   updateCrosshairPreview() {
@@ -316,11 +325,11 @@ export class Menu {
     const aspect = window.innerWidth / window.innerHeight;
     const hipV = hipVFovDeg(s, aspect);
     const hipDpc = hipDegPerCount(s);
-    const sights = Object.values(SIGHTS).map((m) => {
+    const sights = Object.entries(SIGHTS).map(([key, m]) => {
       const adsV = adsVFovDeg(hipV, m.fovMult);
       const dpc = hipDpc * sensFactor(s, 1, adsV, hipV, m.sniper === true);
       return h('tr', {},
-        h('td', {}, m.name.split(' (')[0]),
+        h('td', {}, sightName(key, true)),
         h('td', { class: 'num' }, `${adsV.toFixed(1)}°`),
         h('td', { class: 'num' }, cm360FromDegPerCount(dpc, s.dpi).toFixed(1)),
         h('td', { class: 'num' }, `${mdvZeroPct(hipV, adsV).toFixed(1)}%`));
@@ -330,9 +339,9 @@ export class Menu {
         ['cm/360 hipfire', cm360FromDegPerCount(hipDpc, s.dpi).toFixed(1)],
         ['FOV hipfire (H / V)', `${hFovFromV(hipV, aspect).toFixed(1)}° / ${hipV.toFixed(1)}°`],
       ]),
-      h('h3', {}, 'ADS por nivel de mira'),
+      h('h3', {}, t('settings.adsBySight')),
       h('table', { class: 'history compact' },
-        h('thead', {}, h('tr', {}, h('th', {}, 'Mira'), h('th', { class: 'num' }, 'FOV V'), h('th', { class: 'num' }, 'cm/360'), h('th', { class: 'num', title: 'Sens de ADS que daría 0% monitor distance' }, '0% MDV'))),
+        h('thead', {}, h('tr', {}, h('th', {}, t('info.sight')), h('th', { class: 'num' }, 'FOV V'), h('th', { class: 'num' }, 'cm/360'), h('th', { class: 'num', title: t('settings.mdvTitle') }, '0% MDV'))),
         h('tbody', {}, sights)),
     ];
   }
@@ -348,18 +357,18 @@ export class Menu {
       onclick: async () => {
         try {
           await navigator.clipboard.writeText(SAVE_PATH);
-          this.setImportStatus('Ruta copiada. Pégala en la barra de direcciones del diálogo de archivo.');
+          this.setImportStatus(t('import.pathCopied'));
         } catch {
-          this.setImportStatus(`Copia la ruta a mano: ${SAVE_PATH}`);
+          this.setImportStatus(t('import.copyManually', { path: SAVE_PATH }));
         }
       },
-    }, 'Copiar ruta');
+    }, t('import.copyPath'));
 
-    const box = card('Importar de The Finals',
-      h('p', { class: 'muted' }, 'Carga tu ', h('code', {}, 'EmbarkOptionSaveGame.sav'), ' (o arrástralo aquí) para copiar sens, FOV, sens de ADS, escalado focal y color de mira. ',
-        'Se lee en tu navegador y no se sube a ningún sitio. Los DPI hay que ponerlos a mano.'),
+    const [before, after] = t('import.desc').split('{file}');
+    const box = card(t('section.import'),
+      h('p', { class: 'muted' }, before, h('code', {}, 'EmbarkOptionSaveGame.sav'), after),
       h('p', {}, h('code', {}, `${SAVE_PATH}\\EmbarkOptionSaveGame.sav`)),
-      h('div', { class: 'actions' }, h('button', { class: 'primary', onclick: () => file.click() }, 'Cargar .sav…'), copyBtn),
+      h('div', { class: 'actions' }, h('button', { class: 'primary', onclick: () => file.click() }, t('import.load')), copyBtn),
       this.importStatus,
       file,
     );
@@ -382,18 +391,18 @@ export class Menu {
     try {
       const { values, skipped } = settingsFromFinalsSave(parseFinalsSave(await file.arrayBuffer()));
       const keys = Object.keys(values);
-      if (!keys.length) throw new Error('El archivo no contiene ajustes de ratón ni de FOV.');
+      if (!keys.length) throw new Error(t('import.nothing'));
       Object.assign(this.settings, values);
       keys.forEach((k) => this.handlers.onChange(k));
       this.syncInputs();
       this.refresh();
-      const shown = keys.filter((k) => FIELD_LABELS.has(k) && k !== 'sensMode' && k !== 'fovType');
+      const shown = keys.filter((k) => FIELDS.has(k) && k !== 'sensMode' && k !== 'fovType');
       const fmt = (v) => (v === true ? 'ON' : v === false ? 'OFF' : String(v));
-      let text = `Importado: ${shown.map((k) => `${FIELD_LABELS.get(k)} ${fmt(values[k])}`).join(' · ')}.`;
-      if (skipped.length) text += ` Ignorado por valor no válido: ${skipped.join(', ')}.`;
+      let text = t('import.done', { list: shown.map((k) => `${t(fieldText(FIELDS.get(k)))} ${fmt(values[k])}`).join(' · ') });
+      if (skipped.length) text += t('import.skipped', { list: skipped.join(', ') });
       this.setImportStatus(text);
     } catch (err) {
-      this.setImportStatus(`No se ha podido importar: ${err.message}`, true);
+      this.setImportStatus(t('import.failed', { error: err.message }), true);
     }
   }
 
@@ -407,7 +416,7 @@ export class Menu {
   /** Tarjetas de formulario de una página; con `only`, solo las de esa pestaña. */
   schemaCards(page, only = null) {
     return SETTINGS_SCHEMA.filter((g) => g.page === page && (!only || tabOf(g) === only))
-      .map((g) => card(g.section, h('div', { class: 'fields' }, g.fields.map((f) => this.buildField(f)))));
+      .map((g) => card(t(`section.${g.section}`), h('div', { class: 'fields' }, g.fields.map((f) => this.buildField(f)))));
   }
 
   /** Vuelca los valores actuales de settings en los controles del formulario. */
@@ -423,7 +432,7 @@ export class Menu {
     const s = this.settings;
     let input;
     if (f.type === 'select') {
-      input = h('select', {}, f.options.map(([v, label]) => h('option', { value: v, selected: s[f.key] === v }, label)));
+      input = h('select', {}, f.options.map(([v, text]) => h('option', { value: v, selected: s[f.key] === v }, t(text))));
       input.addEventListener('change', () => this.set(f.key, input.value));
     } else if (f.type === 'checkbox') {
       input = h('input', { type: 'checkbox', checked: s[f.key] });
@@ -444,8 +453,9 @@ export class Menu {
         this.set(f.key, clamped);
       });
     }
+    const text = fieldText(f);
     const row = h(f.type === 'key' ? 'div' : 'label', { class: 'field' },
-      h('div', { class: 'field-label' }, h('span', {}, f.label), f.hint && h('small', {}, f.hint)),
+      h('div', { class: 'field-label' }, h('span', {}, t(text)), hasText(`${text}.hint`) && h('small', {}, t(`${text}.hint`))),
       input);
     this.fieldRows.push({ f, row, input });
     return row;
@@ -454,7 +464,7 @@ export class Menu {
   /** Espera a la siguiente tecla y la asigna. Esc cancela; WASD está reservado para moverse. */
   captureKey(f, button) {
     if (this.capturing) return;
-    button.textContent = 'Pulsa una tecla…';
+    button.textContent = t('settings.pressKey');
     button.classList.add('capturing');
     const done = () => {
       window.removeEventListener('keydown', onKey, true);
@@ -469,7 +479,7 @@ export class Menu {
       e.stopImmediatePropagation();
       if (e.code === 'Escape') return done();
       if (MOVE_KEYS.has(e.code)) {
-        button.textContent = 'WASD es para moverse';
+        button.textContent = t('settings.wasdReserved');
         return;
       }
       this.set(f.key, e.code);
@@ -493,7 +503,7 @@ export class Menu {
   // ---------- Resultados ----------
 
   /**
-   * @param r { key, ranked, weaponName, score (número), rows: [[etiqueta, valor]] }
+   * @param r { key, ranked, weapon (clave), score (número), rows: [[clave de texto, valor]] }
    */
   showResults(r) {
     this.results = r;
@@ -510,27 +520,27 @@ export class Menu {
     const best = previous.length ? Math.max(...previous) : null;
 
     let badge;
-    if (!r.ranked) badge = h('span', { class: 'badge' }, 'Sandbox · no se guarda');
-    else if (best === null) badge = h('span', { class: 'badge' }, 'Primera partida registrada');
-    else if (r.score > best) badge = h('span', { class: 'badge record' }, `¡Nuevo récord! Antes ${fmt(best)}`);
-    else badge = h('span', { class: 'badge' }, `Récord ${fmt(best)} · a ${fmt(round1(best - r.score))}`);
+    if (!r.ranked) badge = h('span', { class: 'badge' }, t('results.sandbox'));
+    else if (best === null) badge = h('span', { class: 'badge' }, t('results.first'));
+    else if (r.score > best) badge = h('span', { class: 'badge record' }, t('results.record', { prev: fmt(best) }));
+    else badge = h('span', { class: 'badge' }, t('results.behind', { best: fmt(best), diff: fmt(round1(best - r.score)) }));
 
     const again = keyLabel(this.settings.restartKey);
     return [
       h('header', { class: 'page-head' },
-        h('span', { class: 'eyebrow' }, r.ranked ? `Resultados · ${def.group}` : 'Resultados · Sandbox'),
-        h('h1', {}, def.name),
-        h('p', { class: 'lead' }, r.weaponName)),
+        h('span', { class: 'eyebrow' }, t('results.eyebrow', { mode: r.ranked ? groupName(def.group) : 'Sandbox' })),
+        h('h1', {}, scenarioName(r.key)),
+        h('p', { class: 'lead' }, weaponName(r.weapon))),
       h('div', { class: 'result-hero' },
-        h('div', { class: 'score' }, h('span', { class: 'score-label' }, 'Puntuación'), h('strong', {}, fmt(r.score)), badge),
+        h('div', { class: 'score' }, h('span', { class: 'score-label' }, t('col.score')), h('strong', {}, fmt(r.score)), badge),
         h('div', { class: 'actions' },
-          h('button', { class: 'primary big', onclick: () => this.handlers.onRestart() }, `Repetir (${again})`),
+          h('button', { class: 'primary big', onclick: () => this.handlers.onRestart() }, t('results.retry', { key: again })),
           r.ranked
-            ? h('button', { onclick: () => this.navigate('scenario', r.key) }, 'Ver estadísticas')
-            : h('button', { onclick: () => this.navigate('sandbox') }, 'Configurar Sandbox'),
-          h('button', { onclick: () => this.navigate('scenarios') }, 'Escenarios'))),
-      h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(k, String(v)))),
-      r.ranked && entries.length > 1 && card('Progreso', progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
+            ? h('button', { onclick: () => this.navigate('scenario', r.key) }, t('results.stats'))
+            : h('button', { onclick: () => this.navigate('sandbox') }, t('results.setup')),
+          h('button', { onclick: () => this.navigate('scenarios') }, t('nav.scenarios')))),
+      h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(t(k), String(v)))),
+      r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
     ];
   }
 
