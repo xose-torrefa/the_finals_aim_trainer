@@ -264,6 +264,9 @@ document.addEventListener('keydown', (e) => {
   if (e.repeat || e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
   if (e.code === 'Escape' && state === 'ready') {
     quitSession();
+  } else if (e.code === 'Escape' && input.locked) {
+    // Con la Keyboard Lock (pantalla completa del botón) el navegador no suelta el ratón con Esc
+    input.unlock();
   } else if (e.code === settings.restartKey) {
     const inGame = ['ready', 'countdown', 'playing', 'paused'].includes(state);
     if (inGame || (state === 'results' && menu.page === 'results')) {

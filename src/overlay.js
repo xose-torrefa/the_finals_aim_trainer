@@ -1,6 +1,6 @@
 import { h } from './dom.js';
 import { t } from './i18n.js';
-import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './fullscreen.js';
+import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './display.js';
 
 // Capa sobre la escena durante una partida: "clic para empezar", cuenta atrás
 // y menú de pausa. El menú completo (menu.js) solo se abre fuera de la partida

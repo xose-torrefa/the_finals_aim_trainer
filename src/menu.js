@@ -9,7 +9,7 @@ import { progressChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
 import { t, hasText, locale, LANGUAGES } from './i18n.js';
-import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './fullscreen.js';
+import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './display.js';
 
 const FIELDS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f]));
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
