@@ -25,7 +25,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 ## GitHub Pages
 
-- `.github/workflows/pages.yml` publica en cada push a `main`: `npm ci` + `npm run verify` y luego monta `_site` con lo mismo que sirve `server.mjs` (`index.html`, `styles.css`, `src/` y `node_modules/three/build/*.js` → `lib/three/`). **Si añades un archivo a `FILES` o a `MOUNTS`, añádelo también al paso "Montar el sitio".**
+- `.github/workflows/pages.yml` publica en cada push a `main`: `npm ci` + `npm run verify` y luego monta `_site` con lo mismo que sirve `server.mjs` (`index.html`, `styles.css`, `favicon-32.png`, `favicon-192.png`, `src/` y `node_modules/three/build/*.js` → `lib/three/`). **Si añades un archivo a `FILES` o a `MOUNTS`, añádelo también al paso "Montar el sitio".**
 - Las acciones van fijadas por SHA de commit, con la versión en un comentario. Para actualizarlas, elige una versión con más de 14 días (como con npm) y sustituye el SHA.
 - Pages no permite cabeceras propias: solo se aplica la CSP del `<meta>` de `index.html` (sin `frame-ancestors`). Cualquier cambio en la CSP hay que hacerlo en los dos sitios.
 

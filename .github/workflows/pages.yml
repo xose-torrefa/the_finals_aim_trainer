@@ -40,7 +40,7 @@ jobs:
       - name: Montar el sitio
         run: |
           mkdir -p _site/lib/three
-          cp index.html styles.css _site/
+          cp index.html styles.css favicon-32.png favicon-192.png _site/
           cp -r src _site/src
           cp node_modules/three/build/*.js _site/lib/three/
 

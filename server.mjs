@@ -14,6 +14,8 @@ const FILES = {
   '/': 'index.html',
   '/index.html': 'index.html',
   '/styles.css': 'styles.css',
+  '/favicon-32.png': 'favicon-32.png',
+  '/favicon-192.png': 'favicon-192.png',
 };
 
 // Prefijos de URL -> directorio. Solo se sirve el build de three, no el paquete completo.
@@ -26,6 +28,7 @@ const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.png': 'image/png',
 };
 
 const CSP = [
