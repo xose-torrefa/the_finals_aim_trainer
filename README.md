@@ -1,54 +1,125 @@
-# Finals Aim
+# The Finals Aim Trainer
 
-Aim trainer en three.js centrado en el ADS de The Finals.
+A browser-based aim trainer built with three.js, focused on how aiming down sights (ADS) works in **THE FINALS**: the same sensitivity math, the same vertical FOV and the same zoom levels per sight, so the muscle memory you build here carries over to the game.
 
-```sh
-npm ci      # instala exactamente lo del lockfile (solo three)
-npm start   # http://localhost:5173
+**▶ Play it now: <https://xose-torrefa.github.io/the_finals_aim_trainer/>**
+
+No install, no account, no tracking. Everything runs in your browser and your data stays in `localStorage`.
+
+> Unofficial fan project. Not affiliated with or endorsed by Embark Studios.
+
+## Features
+
+- **Game-accurate sensitivity and FOV.** Enter your in-game sens and DPI, or import them straight from your game config file.
+- **13 scenarios** in three groups: humanoid targets, THE FINALS situations (jump pads, peeks, changing range…) and classic sphere drills.
+- **Scenarios vs. Sandbox.** Scenarios have fixed settings so scores stay comparable over time; Sandbox lets you tweak everything.
+- **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
+- **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot.
+- **Routines.** Built-in playlists (Warm-up, Tracking, Flicks and precision) plus your own.
+- **Customizable crosshair** with separate hipfire and ADS profiles, first-person weapon models, tracers and synthesized sounds.
+- **Backup** your settings, history and routines to a JSON file and restore them anywhere.
+- **English and Spanish** UI.
+
+## Controls
+
+| Action | Default |
+| --- | --- |
+| Shoot | Left click |
+| ADS | Right click |
+| Move | WASD |
+| Restart | R (configurable) |
+| Pause | Esc |
+
+Each run starts paused: click to capture the mouse and a countdown begins (3 s by default, configurable in Settings → Game). Play in fullscreen (button or F11) so the view matches the game.
+
+## Modes
+
+- **Scenarios**: each scenario has a fixed configuration (weapon, targets, distance, speed, duration) so your scores are comparable. Every run is saved with the cm/360 and FOV you used, and the scenario page shows your record, averages, trend, chart and history.
+- **Sandbox**: everything is configurable (weapon, target class and behaviour, distance, player movement, duration…). Runs are not saved.
+
+Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, audio, countdown) apply in both modes.
+
+## Scenarios
+
+**Humanoids**
+
+| Scenario | Description |
+| --- | --- |
+| Tracking | An immortal target strafes, jumps and dashes. Keep your ADS on it. |
+| Close tracking | At 7 m, like a close-range fight: constant direction changes, moving in and out, jumps and dashes. |
+| Duel | One enemy with its class's health (Light 150 / Medium 250 / Heavy 350). Measures reaction time, TTK and ideal TTK. |
+| Target switching | Three enemies at once, like a team fight. Kill and switch fast. |
+| ADS flick | Static one-hit targets across a 120° arc. |
+
+**THE FINALS situations**
+
+| Scenario | Description |
+| --- | --- |
+| Jump pads | The target launches itself off jump pads and air-strafes while it falls. |
+| Changing range | It walks between 8 and 44 m without stopping its strafe. |
+| Peeks | An enemy peeks out from behind three covers, jiggles and hides again. Pre-aim the edges. |
+| Tracking on the move | Time on target only counts while you move with WASD. |
+
+**Spheres**
+
+| Scenario | Description |
+| --- | --- |
+| Gridshot | Three spheres at once on a grid. Speed and rhythm. |
+| Precision | A small sphere that respawns a few degrees away. Micro-adjustments in ADS. |
+| 3D tracking | A floating sphere with smooth paths in all three dimensions. |
+
+## Sensitivity and FOV
+
+- **Sensitivity** can be entered as THE FINALS sens (yaw 0.001 °/count: sens 47 at 400 DPI = 48.64 cm/360), as cm/360, or as sens × a custom yaw to convert from other games.
+- **FOV** is vertical, like in THE FINALS (verified by measuring the mouse distance from one edge of the screen to the other, in game and in the trainer). Horizontal 16:9 and true horizontal are also available for other games.
+- **ADS FOV** depends on the sight's zoom level, as in the game: Low 1× = 78 %, Medium 1.25× = 68 %, High 1.5× = 58 % of your hipfire FOV (patch 7.0 levels, percentages measured by the community). The sniper scope FOV is not verified yet.
+- **ADS and scoped sensitivity** are percentages, like in the game (78 % by default), with *Mouse Focal Length Sensitivity Scaling* ON/OFF (ON also scales by zoom, i.e. 0 % monitor distance). Settings shows the FOV and ADS cm/360 for each sight level, and which percentage would give 0 % monitor distance.
+- Weapon stats (`src/weapons.js`) and hitbox sizes (`src/target.js`) are approximations. Corrections are welcome.
+
+## Import your game settings
+
+Settings → Import from THE FINALS can load your game's config file (button or drag and drop):
+
+```
+%LOCALAPPDATA%\Discovery\Saved\SaveGames\EmbarkOptionSaveGame.sav
 ```
 
-También se puede publicar en GitHub Pages: el workflow `.github/workflows/pages.yml` lo despliega en cada push a `main` (en el repo, Settings → Pages → Source: **GitHub Actions**). El historial y los ajustes van por dominio, así que para llevártelos de local a Pages usa Ajustes → Copia de seguridad.
+It imports sensitivity, FOV, ADS sensitivity (`MouseZoomSensitivity`), scoped sensitivity (`MouseScopedZoomSensitivity`), focal length scaling and crosshair color. You still have to enter your DPI by hand. The file is parsed in the browser (`src/finals-save.js`): it is never modified or uploaded anywhere.
 
-Controles: clic izq. disparar · clic der. ADS · WASD moverse · R reiniciar · Esc pausa.
+## Your data
 
-Cada partida empieza en pausa: haz clic para capturar el ratón y arranca una cuenta atrás (3 s por defecto, configurable en Ajustes → Partida, igual que la tecla de reinicio).
+Settings, history and routines are stored in your browser's `localStorage`, per site. If you switch between the hosted version and a local copy, use Settings → Backup to export them from one and import them into the other. Imports are merged: runs you already have are not duplicated.
 
-## Modos
+## Running locally
 
-- **Escenarios**: cada escenario tiene una configuración fija (arma, objetivos, distancia, velocidad, sin moverse, 60 s) para que las puntuaciones sean comparables. Cada partida se guarda en un historial (localStorage) con tu cm/360 y FOV del momento, y la ficha de cada escenario muestra récord, medias, gráfica de progreso e historial.
-- **Sandbox**: todo configurable; las partidas no se guardan.
+Requires Node.js 20 or newer (npm 11+ recommended, so the `.npmrc` options are understood).
 
-Sens, FOV, ADS, escalado focal, color de mira y volumen son siempre los tuyos, en ambos modos.
+```sh
+git clone https://github.com/xose-torrefa/the_finals_aim_trainer.git
+cd the_finals_aim_trainer
+npm ci       # installs exactly what the lockfile says (only three)
+npm start    # http://localhost:5173
+```
 
-## Escenarios
+There is no build step: the browser loads the ES modules directly from `src/`.
 
-- **Tracking**: objetivo inmortal que hace strafe, salta y (Light) dashea. Métrica: % de tiempo con la mira encima.
-- **Duelo**: un enemigo con la vida de su clase (Light 150 / Medium 250 / Heavy 350). Mide reacción, TTK y TTK ideal.
-- **Cambio de objetivo**: tres enemigos a la vez.
-- **Flick ADS**: objetivos estáticos de un impacto en un arco de 120°.
-- **Tracking cercano**: humanoide a 7 m que cambia de dirección sin parar, se acerca y se aleja, salta y dashea.
-- **Gridshot** (esferas): tres esferas a la vez en una cuadrícula.
-- **Precisión** (esferas): esfera pequeña que reaparece a pocos grados de la anterior.
-- **Tracking 3D** (esferas): esfera flotante con trayectorias suaves en 3D.
+### Hosting your own copy
 
-## Sensibilidad y FOV
+The workflow in `.github/workflows/pages.yml` deploys to GitHub Pages on every push to `main`. In your fork, go to Settings → Pages → Source and choose **GitHub Actions**.
 
-- Sens de The Finals directamente (yaw 0.001: sens 47 @ 400 DPI = 48,64 cm/360), `cm/360` o `sens × yaw` personalizado para convertir desde otros juegos.
-- FOV vertical, como The Finals (verificado: misma distancia de ratón de borde a borde de pantalla que en el juego). También horizontal 16:9 u horizontal real para otros juegos.
-- ADS: el FOV lo define el nivel de mira, como en The Finals: Low 1× = 78%, Medium 1.25× = 68%, High 1.5× = 58% del FOV de hipfire (niveles del parche 7.0, porcentajes medidos por la comunidad). El FOV del francotirador está sin verificar.
-- Sens de ADS y de francotirador en %, como en el juego (78% por defecto), y "Mouse Focal Length Sensitivity Scaling" ON/OFF (ON = además escala por zoom, 0% monitor distance). Ajustes muestra, para cada nivel de mira, el FOV, los cm/360 de ADS y qué % daría 0% monitor distance.
-- Los valores de las armas (`src/weapons.js`) y hitboxes (`src/target.js`) son aproximados, para ir ajustándolos.
+## Security
 
-## Importar la configuración del juego
+The project keeps its supply chain as small as possible:
 
-Ajustes → Importar de The Finals puede cargar `%LOCALAPPDATA%\Discovery\Saved\SaveGames\EmbarkOptionSaveGame.sav` (botón o arrastrar y soltar). Importa sens, FOV, sens de ADS (`MouseZoomSensitivity`), sens de francotirador (`MouseScopedZoomSensitivity`), escalado focal y color de mira. El archivo se lee en el navegador (`src/finals-save.js`), no se modifica ni se envía a ningún sitio. Los DPI hay que ponerlos a mano.
+- **A single dependency**, `three`, which has no dependencies of its own. No bundler.
+- Exact version pinned and a lockfile with integrity hashes. Use `npm ci`, not `npm install`.
+- `.npmrc` sets `ignore-scripts`, `save-exact`, `allow-git=none`, `min-release-age=14` and an explicit registry.
+- `npm run verify` checks registry signatures and the dependency tree.
+- `server.mjs` has no dependencies, only listens on `127.0.0.1`, serves an allowlist of paths, rejects path traversal and foreign `Host` headers, and sends a strict CSP (`script-src 'self'`, no inline scripts or `eval`).
+- The Pages workflow runs `npm ci` + `npm run verify`, pins actions by commit SHA and uses minimal per-job permissions. GitHub Pages cannot send custom headers, so there only the CSP in the `<meta>` tag applies.
 
-## Seguridad (supply chain)
+To update three: read the changelog, pick a version older than 14 days, run `npm install three@X`, then `npm run verify`.
 
-- Una sola dependencia, `three`, que no tiene dependencias propias. Sin bundler.
-- Versión exacta fijada y lockfile con hash de integridad. Usa `npm ci`, no `npm install`.
-- `.npmrc`: `ignore-scripts`, `save-exact`, `allow-git=none`, `min-release-age=14`, registry explícito.
-- `npm run verify` comprueba las firmas del registro y el árbol de dependencias.
-- `server.mjs` no tiene dependencias, solo escucha en `127.0.0.1`, sirve una lista blanca de rutas (solo `node_modules/three/build`), rechaza path traversal y Hosts ajenos, y envía una CSP estricta (`script-src 'self'`, sin inline ni eval).
-- El workflow de Pages usa `npm ci` + `npm run verify`, acciones fijadas por SHA de commit y permisos mínimos por job. En Pages solo vale la CSP del `<meta>` (no se pueden enviar cabeceras propias).
-- Para actualizar three: revisar el changelog, elegir una versión con más de 14 días, `npm install three@X`, luego `npm run verify`.
+## Contributing
+
+Issues and pull requests are welcome, especially measurements from the game (weapon stats, hitboxes, the sniper FOV). Please keep the constraints above in mind: no new dependencies, and no inline scripts or styles (the CSP blocks them). [`CLAUDE.md`](CLAUDE.md) describes the architecture in detail (in Spanish). Code comments and commit messages are in Spanish; UI strings live in `src/lang/` and must be added to every language.
