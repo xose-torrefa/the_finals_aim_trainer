@@ -43,7 +43,7 @@ class PeekScenario extends Scenario {
     p.depth = -(COVER.depth / 2 + 0.8);
     // Borde de la cobertura visto desde el jugador, a la profundidad del objetivo
     p.edge = (COVER.halfW * (p.cover.dist - p.depth)) / (p.cover.dist - COVER.depth / 2);
-    p.hiddenLat = p.side * (COVER.halfW - t.cls.radius - 0.25);
+    p.hiddenLat = p.side * (COVER.halfW - t.halfWidth - 0.25);
     p.lat = p.goal = p.hiddenLat;
     p.vel = 0;
     t.place(p.cover.center, this.ctx.player.pos);
@@ -53,11 +53,12 @@ class PeekScenario extends Scenario {
   position(t) {
     const p = t.peek;
     t.group.position.copy(t.anchor).addScaledVector(t.axis, p.lat).addScaledVector(t.depthAxis, p.depth);
+    t.group.updateMatrixWorld(true); // el rayo del disparo usa la posición de este fotograma
   }
 
   /** Un punto asomado: el cuerpo entero fuera del borde, más un poco. */
   outLat(t, min, max) {
-    return t.peek.side * (t.peek.edge + t.cls.radius + rand(min, max));
+    return t.peek.side * (t.peek.edge + t.halfWidth + rand(min, max));
   }
 
   update(dt) {
@@ -100,7 +101,7 @@ class PeekScenario extends Scenario {
       this.position(t);
 
       // Asomado = alguna parte del cuerpo fuera del borde
-      const exposed = Math.abs(p.lat) + t.cls.radius > p.edge;
+      const exposed = Math.abs(p.lat) + t.halfWidth > p.edge;
       if (exposed && !p.exposed) {
         st.peeks++;
         p.exposedAt = st.time;

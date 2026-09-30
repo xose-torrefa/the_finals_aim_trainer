@@ -70,6 +70,7 @@ export class Scenario {
     const s = this.ctx.settings;
     const t = new Target(this.ctx.scene, {
       classKey: pickClass(s.targetClass),
+      model: s.targetModel,
       speedScale: s.targetSpeed,
       jumps: s.targetJumps,
       ...opts,

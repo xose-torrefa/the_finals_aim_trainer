@@ -1,4 +1,5 @@
 import * as THREE from '../lib/three/three.module.js';
+import { Humanoid } from './humanoid.js';
 
 // Tamaños aproximados de hitbox por clase. HP reales de The Finals.
 export const CLASSES = {
@@ -49,8 +50,9 @@ export function pickClass(setting) {
 export class Target {
   /**
    * @param {object} opts
-   *  classKey, hp (Infinity = inmortal), move: 'strafe' | 'static',
-   *  speedScale, jumps, lane (semiancho del carril en m), ai (ver DEFAULT_AI)
+   *  classKey, model: 'humanoid' | 'capsule', hp (Infinity = inmortal),
+   *  move: 'strafe' | 'static', speedScale, jumps, lane (semiancho del carril
+   *  en m), ai (ver DEFAULT_AI)
    */
   constructor(scene, opts) {
     this.scene = scene;
@@ -68,24 +70,37 @@ export class Target {
     this.spawnTime = 0;
     this.firstHitTime = null;
 
-    const geo = geometriesFor(this.classKey);
     this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xff6b1a, roughness: 0.55, emissive: 0xffffff, emissiveIntensity: 0 });
     this.headMat = new THREE.MeshStandardMaterial({ color: 0xffd23f, roughness: 0.5, emissive: 0xffffff, emissiveIntensity: 0 });
 
     this.group = new THREE.Group();
-    const body = new THREE.Mesh(geo.body, this.bodyMat);
-    body.position.y = this.cls.bodyHeight / 2;
-    body.userData = { target: this, part: 'body' };
-    const head = new THREE.Mesh(geo.head, this.headMat);
-    head.position.y = this.cls.bodyHeight + this.cls.headRadius * 0.9;
-    head.userData = { target: this, part: 'head' };
-    this.group.add(body, head);
-    this.hitMeshes = [body, head];
+    // Modelo: 'capsule' (por defecto) o 'humanoid' (el hitbox es el propio modelo)
+    let top;
+    this.humanoid = null;
+    if (opts.model === 'humanoid') {
+      this.humanoid = new Humanoid(this.classKey, { body: this.bodyMat, head: this.headMat }, this);
+      this.group.add(this.humanoid.root);
+      this.hitMeshes = this.humanoid.hitMeshes;
+      top = this.humanoid.top;
+      this.halfWidth = this.humanoid.halfWidth;
+    } else {
+      const geo = geometriesFor(this.classKey);
+      const body = new THREE.Mesh(geo.body, this.bodyMat);
+      body.position.y = this.cls.bodyHeight / 2;
+      body.userData = { target: this, part: 'body' };
+      const head = new THREE.Mesh(geo.head, this.headMat);
+      head.position.y = this.cls.bodyHeight + this.cls.headRadius * 0.9;
+      head.userData = { target: this, part: 'head' };
+      this.group.add(body, head);
+      this.hitMeshes = [body, head];
+      top = head.position.y + this.cls.headRadius;
+      this.halfWidth = this.cls.radius;
+    }
 
     this.bar = null;
     if (Number.isFinite(this.maxHp) && this.maxHp > 1) {
       this.bar = new THREE.Group();
-      this.bar.position.y = head.position.y + this.cls.headRadius + 0.25;
+      this.bar.position.y = top + 0.25;
       const bg = new THREE.Mesh(barGeometry, new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.6, depthTest: false }));
       bg.scale.set(0.9, 0.08, 1);
       this.barFill = new THREE.Mesh(barGeometry, new THREE.MeshBasicMaterial({ color: 0xf2f2f2, depthTest: false }));
@@ -111,9 +126,11 @@ export class Target {
     this.vy = 0;
     this.flash = 0;
 
+    this.prevPos = new THREE.Vector3();
+    this.velocity = new THREE.Vector3();
+
     // Zona a la que se apunta (para el análisis): de los pies a lo alto de la cabeza
-    const top = head.position.y + this.cls.headRadius;
-    this.aim = { center: new THREE.Vector3(), half: top / 2, radius: this.cls.radius };
+    this.aim = { center: new THREE.Vector3(), half: top / 2, radius: this.humanoid?.aimRadius ?? this.cls.radius };
 
     scene.add(this.group);
   }
@@ -135,10 +152,14 @@ export class Target {
     this.depth = 0;
     this.depthVel = 0;
     this.group.position.copy(this.anchor);
+    this.prevPos.copy(this.anchor);
   }
 
   update(dt, camera) {
     if (this.move === 'strafe') this.updateStrafe(dt);
+    if (this.humanoid) this.animate(dt, camera);
+    // El rayo del disparo va después: que use la pose de este fotograma
+    this.group.updateMatrixWorld(true);
 
     this.flash = Math.max(0, this.flash - dt * 8);
     this.bodyMat.emissiveIntensity = this.flash * 0.8;
@@ -150,6 +171,22 @@ export class Target {
       this.barFill.scale.x = 0.86 * f;
       this.barFill.position.x = -0.43 * (1 - f);
     }
+  }
+
+  /** Mira al jugador y anima el humanoide con su velocidad real (también si lo mueve el escenario). */
+  animate(dt, camera) {
+    const p = this.group.position;
+    this.group.rotation.y = Math.atan2(camera.position.x - p.x, camera.position.z - p.z);
+    if (dt <= 0) return;
+    this.velocity.subVectors(p, this.prevPos).setY(0);
+    // Un salto de más de 1 m en un fotograma es una recolocación, no movimiento
+    if (this.velocity.length() > 1) this.velocity.set(0, 0, 0);
+    else this.velocity.divideScalar(dt);
+    this.prevPos.copy(p);
+    const yaw = this.group.rotation.y;
+    const vx = this.velocity.x * Math.cos(yaw) - this.velocity.z * Math.sin(yaw);
+    const vz = this.velocity.x * Math.sin(yaw) + this.velocity.z * Math.cos(yaw);
+    this.humanoid.animate(dt, vx, vz, this.y > 0.02);
   }
 
   updateStrafe(dt) {
