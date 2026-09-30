@@ -152,13 +152,13 @@ function startSession(key, ranked) {
   player.pos.set(0, EYE_HEIGHT, 0);
   player.yaw = 0;
   player.pitch = 0;
-  syncCamera();
 
   const stats = createStats();
   const s = scenarioSettings(settings, key, ranked);
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
   session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player) };
   session.scenario = session.def.create(ctx);
+  syncCamera(); // el escenario puede mover al jugador (p. ej. a un tejado)
   viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight, ctx.weapon.level);
   viewmodel.reset();
   lastPlayed = { key, ranked };
@@ -435,6 +435,7 @@ function update(dt) {
         player.pos.x *= ARENA_RADIUS / flat;
         player.pos.z *= ARENA_RADIUS / flat;
       }
+      scenario.clampPlayer(player.pos);
     }
   }
   syncCamera();

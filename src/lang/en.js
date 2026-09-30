@@ -58,6 +58,8 @@ export default {
   'scenario.peek.desc': 'An enemy peeks out from behind three covers, jiggles and hides again, keeping its health. Pre-aim the edges and punish the peek.',
   'scenario.movetrack': 'Tracking on the move',
   'scenario.movetrack.desc': 'Time on target only counts while you move with WASD. Strafe and keep your crosshair on it.',
+  'scenario.rooftop': 'From the rooftop',
+  'scenario.rooftop.desc': 'You are at the edge of a 12 m roof and the target walks along the street, close to the wall. Track it looking down: almost straight below, every step to the side is a big turn.',
   'chip.move': 'WASD movement',
   'chip.freeFire': 'Free fire rate',
 

@@ -93,6 +93,8 @@ export class Scenario {
 
   onHit() {}
   spawn() {}
+  /** Limita por dónde se mueve el jugador (además del borde de la arena). */
+  clampPlayer() {}
 
   dispose() {
     this.targets.forEach((t) => t.dispose());

@@ -25,6 +25,7 @@ import aerial from './aerial.js';
 import range from './range.js';
 import peek from './peek.js';
 import movetrack from './movefollow.js';
+import rooftop from './rooftop.js';
 import gridshot from './gridshot.js';
 import precision from './precision.js';
 import airtrack from './airfollow.js';
@@ -36,7 +37,7 @@ export { createStats } from './base.js';
 // carga nada de la app.
 const LIST = [
   basictrack, tracking, closetrack, duel, switching, flick,
-  aerial, range, peek, movetrack,
+  aerial, range, peek, movetrack, rooftop,
   gridshot, precision, airtrack,
 ];
 

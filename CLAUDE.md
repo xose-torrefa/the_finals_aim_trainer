@@ -36,7 +36,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `ready`: la partida está creada pero espera un clic en el overlay (hace falta un gesto para capturar el ratón).
   - `countdown`: dura `settings.countdown` s (0 = se salta). Se puede mirar y apuntar, pero ni moverse ni disparar, y ni el tiempo ni los objetivos avanzan. Se repite al volver de la pausa.
   - Al capturar el ratón (`pointerlockchange`) se pasa de `ready`/`paused` a la cuenta atrás; al perderlo, de `countdown`/`playing` a `paused`.
-- `startSession(key, ranked)` crea `ctx = { scene, camera, player, settings, weapon, stats }` y lo pasa a `SCENARIOS[key].create(ctx)`. Si el ratón ya está capturado (reinicio en plena partida) va directo a la cuenta atrás; si no, a `ready`.
+- `startSession(key, ranked)` crea `ctx = { scene, camera, player, settings, weapon, stats }` y lo pasa a `SCENARIOS[key].create(ctx)`. Antes pone al jugador en el origen mirando al frente; el escenario puede moverlo (p. ej. al tejado de `rooftop`) y después se sincroniza la cámara. Si el ratón ya está capturado (reinicio en plena partida) va directo a la cuenta atrás; si no, a `ready`.
 - Rutinas: `startRoutine(def)` guarda `routine = { def, index, results }` y lanza cada paso con `startSession(key, true)`. El botón "Siguiente" de los resultados llama a `onRoutineNext`. La rutina se abandona al jugar otra cosa (`onPlay`) o al salir desde la pausa. Si se repite un paso, cuenta la última partida.
 - `settings.restartKey` (un `KeyboardEvent.code`) reinicia la última partida desde `ready`, `countdown`, `playing`, `paused` y la página de resultados.
 - Orden de `update(dt)` (se llama en `countdown` y `playing`):
@@ -103,6 +103,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Una instancia de escenario implementa:
   - `targets` y `hitMeshes`.
   - `colliders` (geometría propia que para las balas, p. ej. las coberturas de Peeks) y `requireMove` (el tiempo en objetivo solo cuenta con WASD pulsado). Los pone la clase base vacíos/`false`.
+  - `clampPlayer(pos)`: limita el movimiento del jugador además del borde de la arena (en la base no hace nada).
   - `update(dt)`.
   - `onHit(target, part, { dealt, killed })`.
   - `live(stats)` (texto ya traducido), `score(stats)`, `summary(stats)` (pares `[clave de texto, valor]`, se traducen al mostrarlos).
@@ -111,7 +112,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `TrackingScenario` recibe un `makeTarget(scenario)`.
   - `EliminationScenario` gestiona respawns con `pending`.
   - `SphereFlickScenario` es la base de Gridshot y Precisión.
-- Clases propias: `MoveTrackScenario` (`movefollow.js`, tracking con `requireMove`) y `PeekScenario` (`peek.js`, coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest).
+- Clases propias: `MoveTrackScenario` (`movefollow.js`, tracking con `requireMove`), `PeekScenario` (`peek.js`, coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest) y `RooftopScenario` (`rooftop.js`, el jugador en el borde de un tejado de 12 m y el objetivo por la calle, pegado a la fachada; `clampPlayer` impide pasar del borde).
 
 **`target.js`: objetivos**
 - `Target` (humanoide) y `SphereTarget` comparten interfaz: `hitMeshes`, `update(dt, camera)`, `applyDamage(amount, now)`, `dispose()`, `spawnTime`, `firstHitTime`.

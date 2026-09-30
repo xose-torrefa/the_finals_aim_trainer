@@ -78,6 +78,8 @@ Target behaviour is configured with options. For humanoids, these go to `sc.newT
 
 A scenario with its own class implements `update(dt)`, `onHit(target, part, { dealt, killed })`, `live(stats)`, `score(stats)`, `summary(stats)` and `dispose()`. `summary` returns `[textKey, value]` pairs, and new text keys go in `src/lang/`.
 
+`create` may also move the player: `ctx.player.pos`, `yaw` and `pitch` start at the origin, looking straight ahead, and the camera is synced after `create`. If you do, implement `clampPlayer(pos)` to keep the player where they belong when movement is on. See `rooftop.js`.
+
 ### Versions
 
 History is stored per `key@version`, so runs are only compared with runs of the same version. **Bump `version`** whenever you change what a scenario asks of the player: its `fixed` settings, its target behaviour, its timing or its scoring. Otherwise new scores get mixed with old ones that aren't comparable. Leave a short comment explaining the bump:
