@@ -59,7 +59,8 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - `history.js` guarda cada partida del modo Escenarios bajo `escenario@version`. **Si cambias la configuración efectiva de un escenario (`fixed`, `RANKED_BASE` o su lógica de dificultad), sube su `version`**; si no, se mezclan puntuaciones que no son comparables.
 
 **`settings.js`: ajustes**
-- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `showIf`, `min`/`max`, `hint`; tipos `select`, `checkbox`, `color`, `number` y `key`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
+- `DEFAULTS` y `SETTINGS_SCHEMA` generan automáticamente los formularios del menú (`page`, `tab` para juntar secciones en una pestaña, `showIf`, `min`/`max`, `hint`; tipos `select`, `checkbox`, `color`, `number` y `key`). Añadir un ajuste = poner su valor por defecto + su campo en el esquema.
+- La mira tiene dos perfiles con los mismos campos (`CROSSHAIR_KEYS`) y prefijos `crosshair*` / `adsCrosshair*`. `adsCrosshair` decide qué se ve en ADS: `dot` (hipfire sin líneas), `same` o `custom`. `crosshair.js` la dibuja con divs (capa de contorno + capa de relleno) y se usa tanto en el HUD como en la vista previa de Ajustes.
 - `loadSettings()` solo acepta valores guardados del mismo tipo que el default.
 - La clave de localStorage está versionada (`finals-aim.settings.v2`). Si cambia la semántica de un ajuste, sube la versión y añade la clave antigua a `OLD_STORAGE_KEYS`.
 

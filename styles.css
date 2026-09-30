@@ -11,7 +11,6 @@
   --accent: #ff2e63;
   --accent-soft: rgba(255, 46, 99, 0.08);
   --accent-2: #ffd23f;
-  --ch-color: #00ff88;
   --radius: 10px;
   --radius-sm: 7px;
   color-scheme: dark;
@@ -43,8 +42,7 @@ html, body {
   background: radial-gradient(ellipse at center, transparent 30%, rgba(0, 0, 0, 0.9) 100%);
 }
 
-#crosshair {
-  --gap: 5px;
+.crosshair {
   --lines: 1;
   position: absolute;
   left: 50%;
@@ -52,27 +50,10 @@ html, body {
   width: 0;
   height: 0;
 }
-.ch-dot {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  left: -2px;
-  top: -2px;
-  background: var(--ch-color);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7);
-}
-.ch-line {
-  position: absolute;
-  background: var(--ch-color);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
-  opacity: var(--lines);
-}
-.ch-top, .ch-bottom { width: 2px; height: 8px; left: -1px; }
-.ch-left, .ch-right { width: 8px; height: 2px; top: -1px; }
-.ch-top { bottom: var(--gap); }
-.ch-bottom { top: var(--gap); }
-.ch-left { right: var(--gap); }
-.ch-right { left: var(--gap); }
+.ch-layer, .ch-part { position: absolute; }
+.ch-fill .ch-part { background: var(--ch-color); }
+.ch-outline .ch-part { background: #000; }
+.ch-top, .ch-bottom, .ch-left, .ch-right { opacity: var(--lines); }
 
 #hitmarker {
   position: absolute;
@@ -445,6 +426,24 @@ button.keybind.capturing { border-color: var(--accent); color: var(--accent); }
 .subtabs button { flex: 1; background: none; border: none; color: var(--muted); white-space: nowrap; }
 .subtabs button:hover { color: var(--text); filter: none; }
 .subtabs button.active { background: var(--surface-2); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+
+.ch-previews { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ch-preview {
+  position: relative;
+  height: 140px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  /* Cielo y sombra, para ver el contraste sobre fondo claro y oscuro */
+  background: linear-gradient(135deg, #9fc4e8 50%, #3a3f4a 50%);
+}
+.ch-preview > span {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #10131a;
+}
 
 .import.dragging { border-color: var(--accent); background: var(--accent-soft); }
 .import-status { color: var(--accent-2); min-height: 1em; }

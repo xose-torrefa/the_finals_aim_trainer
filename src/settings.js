@@ -8,6 +8,27 @@ const OLD_STORAGE_KEYS = ['finals-aim.settings.v1'];
 // Grados por count a sens 1 en The Finals (sens 47 @ 400 DPI = 48,638 cm/360).
 export const FINALS_YAW = 0.001;
 
+// Ajustes de una mira; cada perfil los guarda con su prefijo ('crosshair',
+// 'adsCrosshair'). La separación se mide desde el cruce central, sin el grosor.
+const CROSSHAIR_HIP = {
+  Color: '#00ff88',
+  Opacity: 1,
+  Lines: true,
+  Length: 8,
+  Thickness: 2,
+  Gap: 4,
+  TStyle: false,
+  Dot: true,
+  DotSize: 4,
+  Outline: true,
+  OutlineWidth: 1,
+  OutlineOpacity: 0.6,
+};
+const CROSSHAIR_ADS = { ...CROSSHAIR_HIP, Length: 5, Gap: 2, DotSize: 2 };
+export const CROSSHAIR_KEYS = Object.keys(CROSSHAIR_HIP);
+
+const prefixed = (prefix, o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [prefix + k, v]));
+
 export const DEFAULTS = {
   // Sensibilidad
   sensMode: 'finals',
@@ -48,16 +69,41 @@ export const DEFAULTS = {
   allowMove: true,
   moveSpeed: 5,
 
+  // Mira. adsCrosshair: 'dot' (la de hipfire sin líneas), 'same' o 'custom'
+  ...prefixed('crosshair', CROSSHAIR_HIP),
+  adsCrosshair: 'dot',
+  ...prefixed('adsCrosshair', CROSSHAIR_ADS),
+
   // Visual / audio
-  crosshairColor: '#00ff88',
   showFps: true,
   renderScale: 1,
   volume: 0.4,
 };
 
+/** Campos del formulario de un perfil de mira. */
+function crosshairFields(prefix, showIf = () => true) {
+  const k = (name) => prefix + name;
+  const when = (flag) => (s) => showIf(s) && (!flag || s[k(flag)]);
+  return [
+    { key: k('Color'), label: 'Color de la mira', type: 'color', showIf: when() },
+    { key: k('Opacity'), label: 'Opacidad', type: 'number', min: 0.05, max: 1, step: 0.05, showIf: when() },
+    { key: k('Lines'), label: 'Líneas', type: 'checkbox', showIf: when() },
+    { key: k('Length'), label: 'Longitud (px)', type: 'number', min: 1, max: 50, step: 1, showIf: when('Lines') },
+    { key: k('Thickness'), label: 'Grosor (px)', type: 'number', min: 1, max: 10, step: 1, showIf: when('Lines') },
+    { key: k('Gap'), label: 'Separación (px)', type: 'number', min: 0, max: 50, step: 1, showIf: when('Lines'), hint: 'Hueco entre el cruce central y cada línea.' },
+    { key: k('TStyle'), label: 'Estilo T', type: 'checkbox', showIf: when('Lines'), hint: 'Sin la línea de arriba.' },
+    { key: k('Dot'), label: 'Punto central', type: 'checkbox', showIf: when() },
+    { key: k('DotSize'), label: 'Tamaño del punto (px)', type: 'number', min: 1, max: 16, step: 1, showIf: when('Dot') },
+    { key: k('Outline'), label: 'Contorno', type: 'checkbox', showIf: when() },
+    { key: k('OutlineWidth'), label: 'Grosor del contorno (px)', type: 'number', min: 1, max: 4, step: 1, showIf: when('Outline') },
+    { key: k('OutlineOpacity'), label: 'Opacidad del contorno', type: 'number', min: 0.05, max: 1, step: 0.05, showIf: when('Outline') },
+  ];
+}
+
 // Esquema que usa el menú para generar los formularios. `page` indica en qué
 // página va cada sección: 'settings' (lo personal, se aplica en ambos modos) o
-// 'sandbox' (solo en Sandbox; en Escenarios lo fija cada escenario).
+// 'sandbox' (solo en Sandbox; en Escenarios lo fija cada escenario). Las
+// secciones con el mismo `tab` se muestran juntas en la página de Ajustes.
 export const SETTINGS_SCHEMA = [
   {
     section: 'Sensibilidad',
@@ -92,10 +138,24 @@ export const SETTINGS_SCHEMA = [
     ],
   },
   {
-    section: 'Mira y vídeo',
+    section: 'Mira en hipfire',
+    tab: 'Mira',
+    page: 'settings',
+    fields: crosshairFields('crosshair'),
+  },
+  {
+    section: 'Mira en ADS',
+    tab: 'Mira',
     page: 'settings',
     fields: [
-      { key: 'crosshairColor', label: 'Color de la mira', type: 'color' },
+      { key: 'adsCrosshair', label: 'Al hacer ADS', type: 'select', options: [['dot', 'La de hipfire sin líneas'], ['same', 'La misma que en hipfire'], ['custom', 'Una distinta']], hint: 'Cambia gradualmente con el progreso del ADS.' },
+      ...crosshairFields('adsCrosshair', (s) => s.adsCrosshair === 'custom'),
+    ],
+  },
+  {
+    section: 'Vídeo y sonido',
+    page: 'settings',
+    fields: [
       { key: 'renderScale', label: 'Escala de render', type: 'number', min: 0.25, max: 2, step: 0.05 },
       { key: 'showFps', label: 'Mostrar FPS', type: 'checkbox' },
       { key: 'volume', label: 'Volumen', type: 'number', min: 0, max: 1, step: 0.05 },
@@ -148,6 +208,7 @@ export function loadSettings() {
   } catch { /* storage no disponible o corrupto: defaults */ }
   if (!WEAPONS[s.weapon]) s.weapon = DEFAULTS.weapon;
   if (s.sight !== 'weapon' && !SIGHTS[s.sight]) s.sight = DEFAULTS.sight;
+  if (!['dot', 'same', 'custom'].includes(s.adsCrosshair)) s.adsCrosshair = DEFAULTS.adsCrosshair;
   return s;
 }
 

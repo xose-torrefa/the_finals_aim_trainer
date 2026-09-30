@@ -1,11 +1,16 @@
+import { Crosshair, crosshairProfile } from './crosshair.js';
+
 const $ = (id) => document.getElementById(id);
 
 export class Hud {
   constructor(settings) {
     this.settings = settings;
     this.root = $('hud');
-    this.crosshair = $('crosshair');
     this.hitmarker = $('hitmarker');
+    this.hipCh = new Crosshair();
+    this.adsCh = new Crosshair();
+    this.root.insertBefore(this.hipCh.el, this.hitmarker);
+    this.root.insertBefore(this.adsCh.el, this.hitmarker);
     this.vignette = $('vignette');
     this.timer = $('timer');
     this.liveEl = $('live');
@@ -18,7 +23,12 @@ export class Hud {
   }
 
   applySettings() {
-    this.root.style.setProperty('--ch-color', this.settings.crosshairColor);
+    const s = this.settings;
+    this.hipCh.apply(crosshairProfile(s, 'crosshair'));
+    this.adsCh.apply(crosshairProfile(s, 'adsCrosshair'));
+    this.adsCh.el.classList.toggle('hidden', s.adsCrosshair !== 'custom');
+    this.hipCh.setLines(1);
+    this.hipCh.setOpacity(s.crosshairOpacity);
     this.fpsEl.classList.toggle('hidden', !this.settings.showFps);
   }
 
@@ -35,7 +45,13 @@ export class Hud {
    * @param e         progreso de ADS 0..1
    */
   update(dt, { e, timeLeft, live }) {
-    this.crosshair.style.setProperty('--lines', (1 - e).toFixed(3));
+    // 'dot': se desvanecen las líneas; 'custom': fundido entre las dos miras
+    const s = this.settings;
+    if (s.adsCrosshair === 'dot') this.hipCh.setLines(1 - e);
+    else if (s.adsCrosshair === 'custom') {
+      this.hipCh.setOpacity(s.crosshairOpacity * (1 - e));
+      this.adsCh.setOpacity(s.adsCrosshairOpacity * e);
+    }
     this.vignette.style.opacity = (e * 0.7).toFixed(3);
 
     this.hitTime = Math.max(0, this.hitTime - dt);

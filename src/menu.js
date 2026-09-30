@@ -1,13 +1,16 @@
 import { h } from './dom.js';
-import { SETTINGS_SCHEMA, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
+import { SETTINGS_SCHEMA, CROSSHAIR_KEYS, keyLabel, hipVFovDeg, adsVFovDeg, mdvZeroPct, hFovFromV, hipDegPerCount, sensFactor, cm360FromDegPerCount } from './settings.js';
 import { SIGHTS, resolveWeapon } from './weapons.js';
 import { SCENARIOS, fixedParts } from './scenarios.js';
 import { getHistory } from './history.js';
 import { progressChart } from './chart.js';
+import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
 
 const FIELD_LABELS = new Map(SETTINGS_SCHEMA.flatMap((g) => g.fields).map((f) => [f.key, f.label]));
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD']);
+const CROSSHAIR_TAB = 'Mira';
+const tabOf = (g) => g.tab ?? g.section;
 
 const NAV = [
   ['scenarios', 'Escenarios'],
@@ -39,7 +42,7 @@ export class Menu {
     this.handlers = handlers;
     this.page = 'scenarios';
     this.detailKey = null;
-    this.settingsTab = SETTINGS_SCHEMA.find((g) => g.page === 'settings').section;
+    this.settingsTab = tabOf(SETTINGS_SCHEMA.find((g) => g.page === 'settings'));
     this.results = null;
     this.paused = null;
     this.fieldRows = [];
@@ -80,6 +83,7 @@ export class Menu {
     this.fieldRows = [];
     this.readout = null;
     this.weaponInfo = null;
+    this.chPreview = null;
     const section = this.page === 'scenario' ? 'scenarios' : this.page;
     for (const b of this.navButtons) b.classList.toggle('active', b.dataset.page === section);
     const pages = {
@@ -99,6 +103,7 @@ export class Menu {
     for (const { f, row } of this.fieldRows) row.classList.toggle('hidden', Boolean(f.showIf && !f.showIf(s)));
     if (this.readout) this.readout.replaceChildren(...this.readoutRows());
     if (this.weaponInfo) this.weaponInfo.replaceChildren(this.weaponRows());
+    if (this.chPreview) this.updateCrosshairPreview();
     this.keysHint.textContent = `Clic izq: disparar · Clic der: ADS · WASD: moverse · ${keyLabel(s.restartKey)}: reiniciar · Esc: pausa`;
   }
 
@@ -248,7 +253,7 @@ export class Menu {
   renderSettings() {
     this.readout = h('div', { class: 'readout-wrap' });
     const IMPORT = 'Importar de The Finals';
-    const tabs = [...SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map((g) => g.section), IMPORT];
+    const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT];
     const active = tabs.includes(this.settingsTab) ? this.settingsTab : tabs[0];
     const body = active === IMPORT
       ? this.buildImport()
@@ -268,8 +273,38 @@ export class Menu {
             },
           }, t))),
           body),
-        h('aside', { class: 'stack sticky' }, card('Valores efectivos', this.readout))),
+        h('aside', { class: 'stack sticky' },
+          active === CROSSHAIR_TAB && this.buildCrosshairPreview(),
+          card('Valores efectivos', this.readout))),
     ];
+  }
+
+  buildCrosshairPreview() {
+    this.chPreview = { hip: new Crosshair(), ads: new Crosshair() };
+    const box = (label, ch) => h('div', { class: 'ch-preview' }, h('span', {}, label), ch.el);
+    return card('Vista previa',
+      h('div', { class: 'ch-previews' }, box('Hipfire', this.chPreview.hip), box('ADS', this.chPreview.ads)),
+      h('div', { class: 'actions' }, h('button', { onclick: () => this.copyCrosshairToAds() }, 'Copiar la de hipfire a ADS')));
+  }
+
+  updateCrosshairPreview() {
+    const s = this.settings;
+    const { hip, ads } = this.chPreview;
+    const adsProfile = adsCrosshairProfile(s);
+    hip.apply(crosshairProfile(s, 'crosshair'));
+    hip.setOpacity(s.crosshairOpacity);
+    ads.apply(adsProfile);
+    ads.setOpacity(adsProfile.opacity);
+  }
+
+  /** Pone en ADS una mira propia igual a la de hipfire, como punto de partida. */
+  copyCrosshairToAds() {
+    const s = this.settings;
+    s.adsCrosshair = 'custom';
+    for (const k of CROSSHAIR_KEYS) s[`adsCrosshair${k}`] = s[`crosshair${k}`];
+    ['adsCrosshair', ...CROSSHAIR_KEYS.map((k) => `adsCrosshair${k}`)].forEach((k) => this.handlers.onChange(k));
+    this.syncInputs();
+    this.refresh();
   }
 
   readoutRows() {
@@ -365,9 +400,9 @@ export class Menu {
 
   // ---------- Formularios ----------
 
-  /** Tarjetas de formulario de una página; con `only`, solo la de esa sección. */
+  /** Tarjetas de formulario de una página; con `only`, solo las de esa pestaña. */
   schemaCards(page, only = null) {
-    return SETTINGS_SCHEMA.filter((g) => g.page === page && (!only || g.section === only))
+    return SETTINGS_SCHEMA.filter((g) => g.page === page && (!only || tabOf(g) === only))
       .map((g) => card(g.section, h('div', { class: 'fields' }, g.fields.map((f) => this.buildField(f)))));
   }
 
