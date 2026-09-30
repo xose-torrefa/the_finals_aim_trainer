@@ -73,7 +73,7 @@ Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, 
 - **Sensitivity** can be entered as THE FINALS sens (yaw 0.001 °/count: sens 47 at 400 DPI = 48.64 cm/360), as cm/360, or as sens × a custom yaw to convert from other games.
 - **FOV** is vertical, like in THE FINALS (verified by measuring the mouse distance from one edge of the screen to the other, in game and in the trainer). Horizontal 16:9 and true horizontal are also available for other games.
 - **ADS FOV** depends on the sight's zoom level, as in the game: Low 1× = 78 %, Medium 1.25× = 68 %, High 1.5× = 58 % of your hipfire FOV (patch 7.0 levels, percentages measured by the community). The sniper scope FOV is not verified yet.
-- **ADS and scoped sensitivity** are percentages, like in the game (78 % by default), with *Mouse Focal Length Sensitivity Scaling* ON/OFF (ON also scales by zoom, i.e. 0 % monitor distance). Settings shows the FOV and ADS cm/360 for each sight level, and which percentage would give 0 % monitor distance.
+- **ADS and scoped sensitivity** are percentages, like in the game (100 % by default), with *Mouse Focal Length Sensitivity Scaling* (ON by default: it also scales by zoom, i.e. 0 % monitor distance). Settings shows the FOV and ADS cm/360 for each sight level, and which percentage would give 0 % monitor distance.
 - Weapon stats (`src/weapons.js`) and hitbox sizes (`src/target.js`) are approximations. Corrections are welcome.
 
 ## Import your game settings

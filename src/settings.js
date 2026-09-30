@@ -37,17 +37,17 @@ export const DEFAULTS = {
 
   // Sensibilidad
   sensMode: 'finals',
-  dpi: 400,
-  cm360: 35,
-  gameSens: 47,
+  dpi: 800,
+  cm360: 38.1, // lo mismo que sens 30 @ 800 DPI en The Finals
+  gameSens: 30,
   gameYaw: FINALS_YAW,
-  adsSensPct: 78,
-  sniperSensPct: 78,
-  focalScaling: false,
+  adsSensPct: 100,
+  sniperSensPct: 100,
+  focalScaling: true,
   useRawUpdate: true,
 
   // FOV / ADS
-  fov: 96,
+  fov: 100,
   fovType: 'v', // The Finals usa FOV vertical (verificado midiendo en el juego)
   adsMode: 'hold',
   sight: 'weapon',
