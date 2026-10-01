@@ -25,6 +25,9 @@ function geometriesFor(key) {
   return geometryCache.get(key);
 }
 const barGeometry = new THREE.PlaneGeometry(1, 1);
+const BAR_WIDTH = 0.86;
+const BAR_HEIGHT = 0.07;
+const BAR_SEGMENT = 50; // HP entre marcas de la barra de vida
 
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -99,14 +102,35 @@ export class Target {
 
     this.bar = null;
     if (Number.isFinite(this.maxHp) && this.maxHp > 1) {
+      // Marco oscuro, hueco vacío, rastro blanco del daño reciente, vida
+      // (verde → amarillo → rojo) y marcas cada BAR_SEGMENT HP. Todo
+      // transparente y sin depthTest, para que el orden lo decida renderOrder.
+      const part = (color, opacity, w, h, order) => {
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, depthWrite: false });
+        const mesh = new THREE.Mesh(barGeometry, mat);
+        mesh.scale.set(w, h, 1);
+        mesh.renderOrder = order;
+        return mesh;
+      };
       this.bar = new THREE.Group();
       this.bar.position.y = top + 0.25;
-      const bg = new THREE.Mesh(barGeometry, new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.6, depthTest: false }));
-      bg.scale.set(0.9, 0.08, 1);
-      this.barFill = new THREE.Mesh(barGeometry, new THREE.MeshBasicMaterial({ color: 0xf2f2f2, depthTest: false }));
-      this.barFill.scale.set(0.86, 0.05, 1);
-      this.barFill.renderOrder = 1;
-      this.bar.add(bg, this.barFill);
+      const frame = part(0x000000, 0.75, BAR_WIDTH + 0.04, BAR_HEIGHT + 0.04, 10);
+      const track = part(0x3a1214, 0.9, BAR_WIDTH, BAR_HEIGHT, 11);
+      this.barTrail = part(0xffffff, 1, BAR_WIDTH, BAR_HEIGHT, 12);
+      this.barFill = part(0x000000, 1, BAR_WIDTH, BAR_HEIGHT, 13);
+      this.bar.add(frame, track, this.barTrail, this.barFill);
+      const segments = this.maxHp / BAR_SEGMENT;
+      if (Number.isInteger(segments) && segments > 1 && segments <= 20) {
+        for (let i = 1; i < segments; i++) {
+          const tick = part(0x000000, 0.6, 0.012, BAR_HEIGHT, 14);
+          tick.position.x = BAR_WIDTH * (i / segments - 0.5);
+          this.bar.add(tick);
+        }
+      }
+      this.barShown = 1;   // fracción que marca el rastro blanco
+      this.barHold = 0;    // tiempo (s) que el rastro espera antes de bajar
+      this.barLast = 1;
+      this.updateBar(0);
       this.group.add(this.bar);
     }
 
@@ -166,11 +190,28 @@ export class Target {
     this.headMat.emissiveIntensity = this.flash * 0.8;
 
     if (this.bar) {
-      this.bar.quaternion.copy(camera.quaternion);
-      const f = Math.max(0, this.hp / this.maxHp);
-      this.barFill.scale.x = 0.86 * f;
-      this.barFill.position.x = -0.43 * (1 - f);
+      // La barra es hija del grupo, que gira hacia el jugador: hay que
+      // deshacer ese giro para que quede de cara a la cámara
+      this.bar.quaternion.copy(this.group.quaternion).invert().multiply(camera.quaternion);
+      this.updateBar(dt);
     }
+  }
+
+  updateBar(dt) {
+    const f = Math.max(0, this.hp / this.maxHp);
+    if (f < this.barLast) this.barHold = 0.35;
+    this.barLast = f;
+    this.barHold -= dt;
+    if (this.barHold <= 0) this.barShown = Math.max(f, this.barShown - 1.5 * dt);
+    if (this.barShown < f) this.barShown = f;
+    const span = (mesh, from, to) => {
+      mesh.visible = to > from;
+      mesh.scale.x = BAR_WIDTH * Math.max(to - from, 1e-4);
+      mesh.position.x = BAR_WIDTH * ((from + to) / 2 - 0.5);
+    };
+    span(this.barFill, 0, f);
+    span(this.barTrail, f, this.barShown);
+    this.barFill.material.color.setHSL(0.33 * f, 0.9, 0.5);
   }
 
   /** Mira al jugador y anima el humanoide con su velocidad real (también si lo mueve el escenario). */
