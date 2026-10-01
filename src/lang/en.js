@@ -60,6 +60,8 @@ export default {
   'scenario.movetrack.desc': 'Time on target only counts while you move with WASD. Strafe and keep your crosshair on it.',
   'scenario.rooftop': 'From the rooftop',
   'scenario.rooftop.desc': 'You are at the edge of a 12 m roof and the target walks along the street, close to the wall. Track it looking down: almost straight below, every step to the side is a big turn.',
+  'scenario.hipfire': 'Point-blank hipfire',
+  'scenario.hipfire.desc': 'A Light 2.5–6 m away circles around you, moving in and out, with the odd jump and its two dash charges (5 s to recharge each). Kill it from the hip and another one spawns.',
   'chip.move': 'WASD movement',
   'chip.freeFire': 'Free fire rate',
 

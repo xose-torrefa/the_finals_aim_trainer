@@ -112,7 +112,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
   - `TrackingScenario` recibe un `makeTarget(scenario)`.
   - `EliminationScenario` gestiona respawns con `pending`.
   - `SphereFlickScenario` es la base de Gridshot y Precisión.
-- Clases propias: `MoveTrackScenario` (`movefollow.js`, tracking con `requireMove`), `PeekScenario` (`peek.js`, coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest) y `RooftopScenario` (`rooftop.js`, el jugador en el borde de un tejado de 12 m y el objetivo por la calle, pegado a la fachada; `clampPlayer` impide pasar del borde).
+- Clases propias: `MoveTrackScenario` (`movefollow.js`, tracking con `requireMove`), `PeekScenario` (`peek.js`, coberturas con un objetivo `move: 'static'` que el escenario mueve: escondido → asoma → ADAD → vuelve; la barra de vida se oculta mientras está tapado, porque no tiene depthTest), `RooftopScenario` (`rooftop.js`, el jugador en el borde de un tejado de 12 m y el objetivo por la calle, pegado a la fachada; `clampPlayer` impide pasar del borde) y `HipfireScenario` (`hipfire.js`, un Light humanoide que orbita alrededor del jugador a 2,5–6 m, también con `move: 'static'`; dashes como en el juego: 2 cargas que se recargan de una en una cada 5 s).
 
 **`target.js`: objetivos**
 - `Target` (humanoide) y `SphereTarget` comparten interfaz: `hitMeshes`, `update(dt, camera)`, `applyDamage(amount, now)`, `dispose()`, `spawnTime`, `firstHitTime`.

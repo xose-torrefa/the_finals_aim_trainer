@@ -59,6 +59,8 @@ export default {
   'scenario.movetrack.desc': 'El tiempo en objetivo solo cuenta mientras te mueves con WASD. Muévete de lado sin perderlo de la mira.',
   'scenario.rooftop': 'Desde el tejado',
   'scenario.rooftop.desc': 'Estás al borde de un tejado de 12 m y el objetivo pasa por la calle, pegado a la fachada. Síguelo mirando hacia abajo: casi en vertical, cada paso de lado es un giro grande.',
+  'scenario.hipfire': 'Hipfire a quemarropa',
+  'scenario.hipfire.desc': 'Un Light a 2,5–6 m da vueltas a tu alrededor, acercándose y alejándose, con algún salto y sus dos cargas de dash (5 s para recargar cada una). Mátalo desde la cadera y aparece otro.',
   'chip.move': 'Movimiento WASD',
   'chip.freeFire': 'Cadencia libre',
 
