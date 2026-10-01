@@ -11,14 +11,16 @@ No install, no account, no tracking. Everything runs in your browser and your da
 ## Features
 
 - **Game-accurate sensitivity and FOV.** Enter your in-game sens and DPI, or import them straight from your game config file.
-- **13 scenarios** in three groups: humanoid targets, THE FINALS situations (jump pads, peeks, changing range…) and classic sphere drills.
-- **Light, Medium and Heavy humanoid targets** (in Sandbox) whose hitbox is the model itself: arms and legs count, the gap between the legs doesn't.
+- **15 scenarios** in three groups: humanoid targets, THE FINALS situations (jump pads, peeks, changing range…) and classic sphere drills.
+- **Light, Medium and Heavy humanoid targets** (in Sandbox and the point-blank hipfire scenario) whose hitbox is the model itself: arms and legs count, the gap between the legs doesn't.
 - **Scenarios vs. Sandbox.** Scenarios have fixed settings so scores stay comparable over time; Sandbox lets you tweak everything.
 - **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
 - **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot.
 - **Routines.** Built-in playlists (Warm-up, Tracking, Flicks and precision) plus your own.
+- **Your sight for each weapon** (iron sights, red dot or scope; red dot by default when the weapon has one), which sets the ADS zoom as in the game.
 - **Customizable crosshair** with separate hipfire and ADS profiles, and **crosshair codes** to share yours or import someone else's.
 - First-person weapon models, tracers and synthesized sounds.
+- **Background styles**: a procedural game-show city (default), simple blocks, minimal or dark.
 - **Backup** your settings, history and routines to a JSON file and restore them anywhere.
 - **English and Spanish** UI.
 
@@ -47,6 +49,7 @@ Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, 
 
 | Scenario | Description |
 | --- | --- |
+| Basic tracking | To learn: the target walks from side to side at a steady speed and only turns around at the ends. No jumps or dashes. |
 | Tracking | An immortal target strafes, jumps and dashes. Keep your ADS on it. |
 | Close tracking | At 7 m, like a close-range fight: constant direction changes, moving in and out, jumps and dashes. |
 | Duel | One enemy with its class's health (Light 150 / Medium 250 / Heavy 350). Measures reaction time, TTK and ideal TTK. |
@@ -61,6 +64,8 @@ Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, 
 | Changing range | It walks between 8 and 44 m without stopping its strafe. |
 | Peeks | An enemy peeks out from behind three covers, jiggles and hides again. Pre-aim the edges. |
 | Tracking on the move | Time on target only counts while you move with WASD. |
+| From the rooftop | You stand at the edge of a 12 m roof and track a target walking along the street below. |
+| Point-blank hipfire | A humanoid Light circles you at 2.5–6 m, jumping and dashing (two charges, 5 s each to recharge). Kill it from the hip. |
 
 **Spheres**
 
