@@ -56,6 +56,7 @@ export const RANKED_BASE = {
   adsTimeOverride: 0,
   fireRate: 'weapon',
   targetClass: 'medium',
+  targetModel: 'capsule',
   targetDistance: 20,
   targetSpeed: 1,
   targetJumps: true,

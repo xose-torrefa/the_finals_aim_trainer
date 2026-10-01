@@ -72,6 +72,7 @@ export const DEFAULTS = {
 
   // Objetivos
   targetClass: 'medium',
+  targetModel: 'capsule',
   targetDistance: 20,
   targetSpeed: 1,
   targetJumps: true,
@@ -244,6 +245,7 @@ export const SETTINGS_SCHEMA = [
     page: 'sandbox',
     fields: [
       { key: 'targetClass', type: 'select', options: opts('targetClass', ['light', 'medium', 'heavy', 'random']) },
+      { key: 'targetModel', type: 'select', options: opts('targetModel', ['capsule', 'humanoid']) },
       { key: 'targetDistance', type: 'number', min: 3, max: 120, step: 1 },
       { key: 'targetSpeed', type: 'number', min: 0, max: 3, step: 0.05 },
       { key: 'targetJumps', type: 'checkbox' },

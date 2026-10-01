@@ -12,6 +12,7 @@ No install, no account, no tracking. Everything runs in your browser and your da
 
 - **Game-accurate sensitivity and FOV.** Enter your in-game sens and DPI, or import them straight from your game config file.
 - **13 scenarios** in three groups: humanoid targets, THE FINALS situations (jump pads, peeks, changing range…) and classic sphere drills.
+- **Light, Medium and Heavy humanoid targets** (in Sandbox) whose hitbox is the model itself: arms and legs count, the gap between the legs doesn't.
 - **Scenarios vs. Sandbox.** Scenarios have fixed settings so scores stay comparable over time; Sandbox lets you tweak everything.
 - **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
 - **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot.
@@ -75,7 +76,7 @@ Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, 
 - **FOV** is vertical, like in THE FINALS (verified by measuring the mouse distance from one edge of the screen to the other, in game and in the trainer). Horizontal 16:9 and true horizontal are also available for other games.
 - **ADS FOV** depends on the sight's zoom level, as in the game: Low 1× = 78 %, Medium 1.25× = 68 %, High 1.5× = 58 % of your hipfire FOV (patch 7.0 levels, percentages measured by the community). The sniper scope FOV is not verified yet.
 - **ADS and scoped sensitivity** are percentages, like in the game (100 % by default), with *Mouse Focal Length Sensitivity Scaling* (ON by default: it also scales by zoom, i.e. 0 % monitor distance). Settings shows the FOV and ADS cm/360 for each sight level, and which percentage would give 0 % monitor distance.
-- Weapon stats (`src/weapons.js`) and hitbox sizes (`src/target.js`) are approximations. Corrections are welcome.
+- Weapon stats (`src/weapons.js`) and target sizes (`src/humanoid.js`, `src/target.js`) are approximations. Corrections are welcome.
 
 ## Import your game settings
 
