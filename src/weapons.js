@@ -24,8 +24,9 @@ export const sightName = named('sight');
 
 // Arquetipos de arma. Los números son APROXIMADOS (inspirados en The Finals) y
 // están pensados para ir ajustándose durante el desarrollo.
-//  sights:     miras que admite → nivel de aumento (ver LEVELS). La primera es
-//              la que lleva por defecto; cada jugador elige la suya en Ajustes
+//  sights:     miras que admite → nivel de aumento (ver LEVELS). Por defecto
+//              lleva el red dot si lo admite, y si no, la primera (`defaultSight`);
+//              cada jugador elige la suya en Ajustes
 //              → Armas (`sightKey(arma)`), y esa decide el FOV de ADS.
 //  adsTime:    segundos para entrar en ADS completo
 //  falloff:    [inicio m, fin m, multiplicador mínimo]
@@ -82,10 +83,16 @@ export function idealTTK(w, hp, dist) {
 /** Clave del ajuste con la mira elegida para un arma ('ar' → 'sightAr'). */
 export const sightKey = (weapon) => `sight${weapon[0].toUpperCase()}${weapon.slice(1)}`;
 
+/** Mira por defecto de un arma: el red dot si lo admite, y si no, la primera. */
+export function defaultSight(weapon) {
+  const { sights } = WEAPONS[weapon];
+  return Object.hasOwn(sights, 'reddot') ? 'reddot' : Object.keys(sights)[0];
+}
+
 /** Mira y nivel de aumento que lleva un arma según los ajustes. */
 export function weaponSight(s, weapon) {
   const { sights } = WEAPONS[weapon];
-  const sight = Object.hasOwn(sights, s[sightKey(weapon)]) ? s[sightKey(weapon)] : Object.keys(sights)[0];
+  const sight = Object.hasOwn(sights, s[sightKey(weapon)]) ? s[sightKey(weapon)] : defaultSight(weapon);
   return { sight, level: sights[sight] };
 }
 
