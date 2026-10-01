@@ -2,8 +2,8 @@ import { h } from './dom.js';
 import { t } from './i18n.js';
 import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './display.js';
 
-// Capa sobre la escena durante una partida: "clic para empezar", cuenta atrás
-// y menú de pausa. El menú completo (menu.js) solo se abre fuera de la partida
+// Capa sobre la escena durante una partida: "clic para empezar", cuenta atrás,
+// menú de pausa y resultado rápido al acabar. El menú completo (menu.js) solo se abre fuera de la partida
 // o al ir a Ajustes desde la pausa.
 export class Overlay {
   /**
@@ -72,6 +72,21 @@ export class Overlay {
         btn(t('nav.settings'), () => this.handlers.onSettings()),
         btn(t('common.quit'), () => this.handlers.onQuit())),
       this.message));
+  }
+
+  /**
+   * Resultado rápido al acabar: se ve sobre la escena con el ratón aún capturado.
+   * Las teclas las gestiona main.js (no hay botones: no se puede hacer clic).
+   * @param rows pares [clave de texto, valor] del resumen del escenario
+   */
+  showFinished({ eyebrow, name, score, badges, rows, keys }) {
+    this.show('finished', h('div', { class: 'ov-card finished-card' },
+      h('span', { class: 'eyebrow' }, eyebrow),
+      h('h1', {}, name),
+      h('strong', { class: 'ov-score' }, score),
+      badges,
+      h('dl', { class: 'ov-rows' }, rows.flatMap(([k, v]) => [h('dt', {}, t(k)), h('dd', {}, String(v))])),
+      h('p', { class: 'keys' }, keys)));
   }
 
   setMessage(text) {

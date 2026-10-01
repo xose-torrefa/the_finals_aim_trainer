@@ -66,9 +66,10 @@ export const DEFAULTS = {
   fireRate: 'weapon',
   duration: 60,
 
-  // Partida
+  // Partida. quickResults: al acabar, resultado sobre la escena sin soltar el ratón
   countdown: 3,
   restartKey: 'KeyR',
+  quickResults: true,
 
   // Objetivos
   targetClass: 'medium',
@@ -180,6 +181,7 @@ export const SETTINGS_SCHEMA = [
     fields: [
       { key: 'countdown', type: 'number', min: 0, max: 10, step: 0.5 },
       { key: 'restartKey', type: 'key' },
+      { key: 'quickResults', type: 'checkbox' },
     ],
   },
   {

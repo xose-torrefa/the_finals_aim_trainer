@@ -110,6 +110,7 @@ html, body {
 }
 .overlay.ready { cursor: pointer; }
 .overlay.countdown { background: none; backdrop-filter: none; pointer-events: none; }
+.overlay.finished { backdrop-filter: blur(1px); }
 
 .ov-card {
   min-width: 340px;
@@ -135,6 +136,10 @@ html, body {
 .ov-card .message:empty { display: none; }
 .fs-tip { display: grid; justify-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .ov-actions { display: grid; gap: 8px; margin-top: 20px; }
+.finished-card { display: grid; justify-items: center; gap: 6px; }
+.ov-score { font-size: 56px; line-height: 1.1; font-weight: 900; font-variant-numeric: tabular-nums; margin-top: 8px; }
+.ov-rows { min-width: 260px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; text-align: left; }
+.finished-card .badges { justify-content: center; }
 .ov-actions button { width: 100%; }
 
 @keyframes breathe { 50% { opacity: 0.55; } }
@@ -331,6 +336,7 @@ button.back:hover { color: var(--text); }
 .tile.accent strong { color: var(--accent-2); }
 .tile.up strong { color: var(--good); }
 .tile.down strong { color: var(--accent); }
+.tile small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 
 dl { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; margin: 0; }
 dt { color: var(--muted); }
@@ -550,6 +556,8 @@ button.keybind.capturing { border-color: var(--accent); color: var(--accent); }
 .chart .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 .chart .dot.best { fill: var(--accent-2); }
 .chart .dot.hover { fill: var(--text); }
+.chart .dot.run { stroke: none; }
+.chart .mean { stroke: var(--accent-2); stroke-width: 3; stroke-linecap: round; }
 .chart .cross { stroke: var(--muted); stroke-width: 1; }
 .chart .hit { fill: transparent; cursor: crosshair; }
 .chart-tip {

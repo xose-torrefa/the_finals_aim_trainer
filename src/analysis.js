@@ -277,3 +277,65 @@ export function analysisView(a) {
   }
   return { tiles, tips };
 }
+
+/** Métricas del análisis que se guardan en el historial (solo las que tienen datos). */
+export function analysisFields(a) {
+  const out = {};
+  const put = (k, v) => {
+    if (Number.isFinite(v)) out[k] = Math.round(v * 10) / 10;
+  };
+  put('lagMs', a?.tracking?.lagMs);
+  put('reversalOnPct', a?.tracking?.reversalOnPct);
+  put('overPct', a?.flicks?.overPct);
+  put('underPct', a?.flicks?.underPct);
+  put('correctionMs', a?.flicks?.correctionMs);
+  put('earlyPct', a?.cadence?.earlyPct);
+  return out;
+}
+
+const lagText = (x) => {
+  const ms = Math.round(Math.abs(x));
+  return ms < IN_SYNC_MS ? t('an.inSync') : t(x > 0 ? 'an.behind' : 'an.ahead', { ms });
+};
+const msText = (x) => `${Math.round(x)} ms`;
+
+// Evolución de cada métrica: `cost` da lo "malo" (menos es mejor) y `margin`,
+// cuánto tiene que cambiar para contar como mejora o empeoramiento
+const TREND_METRICS = [
+  { key: 'lagMs', label: 'an.lag', format: lagText, cost: Math.abs, margin: 5 },
+  { key: 'reversalOnPct', label: 'an.reversalTrend', format: pct, cost: (x) => -x, margin: 3 },
+  { key: 'overPct', label: 'an.over', format: pct, cost: (x) => x, margin: 3 },
+  { key: 'underPct', label: 'an.under', format: pct, cost: (x) => x, margin: 3 },
+  { key: 'correctionMs', label: 'an.correction', format: msText, cost: (x) => x, margin: 10 },
+  { key: 'earlyPct', label: 'an.early', format: pct, cost: (x) => x, margin: 2 },
+];
+const TREND_RECENT = 10; // partidas de cada tramo
+const TREND_MIN = 3; // partidas mínimas en un tramo
+
+/**
+ * Evolución del análisis en el historial de un escenario: media de las últimas
+ * partidas con cada métrica frente a las anteriores.
+ * @returns [{ label, value, before, cls: 'up' | 'down' | '' }] (vacío si no hay datos)
+ */
+export function analysisTrendView(entries) {
+  const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const out = [];
+  for (const m of TREND_METRICS) {
+    const values = entries.map((e) => e[m.key]).filter(Number.isFinite);
+    const recent = values.slice(-TREND_RECENT);
+    if (recent.length < TREND_MIN) continue;
+    const prev = values.slice(-2 * TREND_RECENT, -TREND_RECENT);
+    const now = mean(recent);
+    let before = null;
+    let cls = '';
+    if (prev.length >= TREND_MIN) {
+      const was = mean(prev);
+      before = m.format(was);
+      const gain = m.cost(was) - m.cost(now);
+      if (gain > m.margin) cls = 'up';
+      else if (gain < -m.margin) cls = 'down';
+    }
+    out.push({ label: t(m.label), value: m.format(now), before, cls, n: recent.length });
+  }
+  return out;
+}

@@ -4,8 +4,8 @@ import { WEAPONS, LEVELS, resolveWeapon, weaponSight, weaponName, sightName } fr
 import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupName } from './scenarios/index.js';
 import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
 import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
-import { analysisView } from './analysis.js';
-import { progressChart } from './chart.js';
+import { analysisView, analysisTrendView } from './analysis.js';
+import { progressChart, sensChart, sensGroups } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { encodeCrosshair, decodeCrosshair } from './crosshair-code.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
@@ -24,6 +24,9 @@ const SOUND_TESTS = ['shot', 'hit', 'head', 'kill', 'countdown'];
 const tabOf = (g) => g.tab ?? g.section;
 
 const NAV = ['scenarios', 'routines', 'sandbox', 'settings'];
+// Sensibilidad con la que se compara la puntuación en la ficha del escenario
+const SENS_FIELDS = ['cm360', 'adsCm360'];
+const SENS_MIN_RUNS = 3;
 // Páginas que cuelgan de una sección de la barra lateral
 const SECTION_OF = { scenario: 'scenarios', 'routine-edit': 'routines', 'routine-summary': 'routines' };
 
@@ -43,7 +46,7 @@ const dateText = (time, year = false) => new Date(time).toLocaleString(locale(),
   day: '2-digit', month: '2-digit', year: year ? '2-digit' : undefined, hour: '2-digit', minute: '2-digit',
 });
 
-const tile = (label, value, cls = '') => h('div', { class: `tile ${cls}` }, h('span', {}, label), h('strong', {}, value));
+const tile = (label, value, cls = '', sub = null) => h('div', { class: `tile ${cls}` }, h('span', {}, label), h('strong', {}, value), sub && h('small', {}, sub));
 const chips = (parts) => h('div', { class: 'chips' }, parts.map((p) => h('span', { class: 'chip' }, p)));
 const card = (title, ...children) => h('section', { class: 'card' }, title && h('h2', {}, title), children);
 
@@ -78,6 +81,7 @@ export class Menu {
     this.results = null;
     this.draft = null; // rutina que se está editando: { id, name, steps }
     this.paused = null;
+    this.sensField = SENS_FIELDS[0];
     this.fieldRows = [];
     this.buildShell();
     this.render();
@@ -265,6 +269,8 @@ export class Menu {
           ? tile(t('stat.trend', { n: tr.n }), `${tr.pct >= 0 ? '+' : '−'}${Math.abs(tr.pct).toFixed(1)}%`, tr.pct >= 0 ? 'up' : 'down')
           : tile(t('stat.trendShort'), '—')),
       card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 240 })),
+      this.sensCard(def, entries),
+      this.analysisTrendCard(entries),
       card(t('card.history'),
         h('table', { class: 'history' },
           h('thead', {}, h('tr', {},
@@ -280,6 +286,57 @@ export class Menu {
           num(e.fov ?? '—'))))),
         entries.length > rows.length && h('p', { class: 'muted small' }, t('history.showing', { shown: rows.length, total: entries.length }))),
     ];
+  }
+
+  /** Puntuación según la sensibilidad (solo si se ha jugado con más de una). */
+  sensCard(def, entries) {
+    const fields = SENS_FIELDS.filter((f) => sensGroups(entries, f).length > 1);
+    if (!fields.length) return null;
+    if (!fields.includes(this.sensField)) this.sensField = fields[0];
+    const body = h('div', { class: 'stack' });
+    const tabs = h('div', { class: 'subtabs', role: 'tablist' });
+    const draw = () => {
+      const field = this.sensField;
+      tabs.replaceChildren(...SENS_FIELDS.map((f) => h('button', {
+        class: f === field ? 'active' : '',
+        role: 'tab',
+        disabled: !fields.includes(f),
+        onclick: () => {
+          this.sensField = f;
+          draw();
+        },
+      }, t(`sens.${f}`))));
+      const groups = sensGroups(entries, field);
+      // La mejor media, entre las sens con partidas suficientes para compararlas
+      const ranked = groups.filter((g) => g.n >= SENS_MIN_RUNS);
+      const top = ranked.length > 1 ? ranked.reduce((a, b) => (b.avg > a.avg ? b : a)) : null;
+      const num = (text) => h('td', { class: 'num' }, text);
+      body.replaceChildren(
+        sensChart(entries, field, def.formatScore, def.formatTick, { width: 860, height: 240 }),
+        h('table', { class: 'history' },
+          h('thead', {}, h('tr', {},
+            h('th', {}, t(`sens.${field}`)), h('th', { class: 'num' }, t('stat.runs')), h('th', { class: 'num' }, t('sens.avg')),
+            h('th', { class: 'num' }, t('stat.best')), h('th', { class: 'num' }, t('sens.lastPlayed')))),
+          h('tbody', {}, groups.map((g) => h('tr', { class: g === top ? 'best' : '' },
+            h('td', {}, g.value.toFixed(1)),
+            num(String(g.n)),
+            num(def.formatScore(round1(g.avg))),
+            num(def.formatScore(g.best)),
+            num(dateText(g.last, true)))))),
+        h('p', { class: 'muted small' }, t('sens.note', { n: SENS_MIN_RUNS })));
+    };
+    draw();
+    return card(t('card.sens'), tabs, body);
+  }
+
+  /** Evolución de las métricas del análisis guardadas con cada partida. */
+  analysisTrendCard(entries) {
+    const rows = analysisTrendView(entries);
+    if (!rows.length) return null;
+    return card(t('card.analysisTrend'),
+      h('div', { class: 'tiles' }, rows.map((r) => tile(r.label, r.value, r.cls,
+        r.before === null ? t('an.trend.recent', { n: r.n }) : t('an.trend.before', { n: r.n, value: r.before })))),
+      h('p', { class: 'muted small' }, t('an.trend.note')));
   }
 
   // ---------- Sandbox ----------
@@ -704,11 +761,9 @@ export class Menu {
       ];
     }
 
-    let eyebrow = t('results.eyebrow', { mode: r.ranked ? groupName(def.group) : 'Sandbox' });
-    if (p) eyebrow = t('routines.eyebrow', { name: routineName(p.def), step: p.index + 1, total: p.def.steps.length });
     return [
       h('header', { class: 'page-head' },
-        h('span', { class: 'eyebrow' }, eyebrow),
+        h('span', { class: 'eyebrow' }, this.resultsEyebrow(r)),
         h('h1', {}, scenarioName(r.key)),
         h('p', { class: 'lead' }, weaponName(r.weapon))),
       p && this.routineSteps(p),
@@ -719,6 +774,13 @@ export class Menu {
       r.analysis && this.analysisCard(r.analysis),
       r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
     ];
+  }
+
+  /** Modo de la partida, o el paso de la rutina. */
+  resultsEyebrow(r) {
+    const p = r.routine;
+    if (p) return t('routines.eyebrow', { name: routineName(p.def), step: p.index + 1, total: p.def.steps.length });
+    return t('results.eyebrow', { mode: r.ranked ? groupName(SCENARIOS[r.key].group) : 'Sandbox' });
   }
 
   /** Récord y comparación con la media de las partidas anteriores. */

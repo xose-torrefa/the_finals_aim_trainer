@@ -25,7 +25,8 @@ export function getHistory(key, def) {
 
 /**
  * Guarda una partida.
- * @param entry { t, score, accuracy, cm360, adsCm360, fov }
+ * @param entry { t, score, accuracy, cm360, adsCm360, fov } + las métricas del
+ *   análisis que haya (`ANALYSIS_FIELDS`)
  * @returns la lista actualizada
  */
 export function addEntry(key, def, entry) {
@@ -40,7 +41,10 @@ export function addEntry(key, def, entry) {
 }
 
 const HISTORY_KEY = /^[\w-]+@\d+$/;
-const ENTRY_FIELDS = ['t', 'score', 'accuracy', 'cm360', 'adsCm360', 'fov'];
+// Métricas del análisis que se guardan con cada partida (solo las que tienen datos
+// suficientes; ver `analysisFields` en analysis.js)
+export const ANALYSIS_FIELDS = ['lagMs', 'reversalOnPct', 'overPct', 'underPct', 'correctionMs', 'earlyPct'];
+const ENTRY_FIELDS = ['t', 'score', 'accuracy', 'cm360', 'adsCm360', 'fov', ...ANALYSIS_FIELDS];
 
 /** Todo el historial, para la copia de seguridad. */
 export function exportHistory() {
