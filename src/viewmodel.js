@@ -9,8 +9,6 @@ const BOX = new THREE.BoxGeometry(1, 1, 1);
 const CYL = new THREE.CylinderGeometry(1, 1, 1, 20).rotateX(Math.PI / 2); // eje en z
 const TUBE = new THREE.CylinderGeometry(1, 1, 1, 28, 1, true).rotateX(Math.PI / 2);
 const RING = new THREE.TorusGeometry(1, 0.12, 8, 32); // en el plano XY, mirando a z
-const DISC = new THREE.CircleGeometry(1, 24);
-const PLANE = new THREE.PlaneGeometry(1, 1);
 
 const MAT = {
   metal: new THREE.MeshStandardMaterial({ color: 0x4a5059, metalness: 0.4, roughness: 0.45 }),
@@ -84,17 +82,63 @@ function buildRevolver(g) {
   return { top: 0.0225, muzzle: new THREE.Vector3(0, 0.012, -0.225), kick: 1 };
 }
 
-/** Mira reflex: ventana rectangular con cristal sobre una base. Devuelve la altura de su centro. */
+// Perfil de la ventana de la reflex (U invertida con las esquinas de arriba
+// redondeadas), con la base en y = 0. `t` = grosor del marco; sin `t`, el hueco.
+function hoodPath(path, w, h, r, t = 0) {
+  const x = w / 2 - t;
+  const rr = r - t;
+  // El lado izquierdo va explícito: un absarc justo después de moveTo no une
+  // con ese punto (three solo lo hace si ya hay una curva antes)
+  path.moveTo(-x, 0);
+  path.lineTo(-x, h - r);
+  path.absarc(-w / 2 + r, h - r, rr, Math.PI, Math.PI / 2, true);
+  path.absarc(w / 2 - r, h - r, rr, Math.PI / 2, 0, true);
+  path.lineTo(x, 0);
+  return path;
+}
+
+const hoodCache = new Map();
+/** Geometrías del marco (extruido, centrado en z) y del cristal de una reflex, en caché por medidas. */
+function hoodGeometries(w, h, r, t, d) {
+  const key = [w, h, r, t, d].join();
+  if (!hoodCache.has(key)) {
+    const frame = hoodPath(new THREE.Shape(), w, h + t, r);
+    // Vuelta por dentro: el marco queda abierto por abajo, sobre la base
+    frame.lineTo(w / 2 - t, 0);
+    frame.absarc(w / 2 - r, h + t - r, r - t, 0, Math.PI / 2, false);
+    frame.absarc(-w / 2 + r, h + t - r, r - t, Math.PI / 2, Math.PI, false);
+    frame.lineTo(-w / 2 + t, 0);
+    frame.closePath();
+    hoodCache.set(key, {
+      frame: new THREE.ExtrudeGeometry(frame, { depth: d, bevelEnabled: false, curveSegments: 8 }).translate(0, 0, -d / 2),
+      glass: new THREE.ShapeGeometry(hoodPath(new THREE.Shape(), w, h + t, r, t), 8),
+    });
+  }
+  return hoodCache.get(key);
+}
+
+/**
+ * Mira reflex compacta: base y, encima de su parte delantera, una ventana con el
+ * marco en U invertida (arriba redondeado) y cristal. `hgt` = alto del hueco.
+ * Devuelve la altura del centro del hueco.
+ */
 function reflex(g, top, z, w, hgt, base) {
-  const b = 0.004;
-  box(g, MAT.metal, base[0], base[1], base[2], 0, top + base[1] / 2, z);
-  const y = top + base[1] + hgt / 2;
-  box(g, MAT.metal, w, b, 0.012, 0, y + hgt / 2, z);
-  box(g, MAT.metal, w, b, 0.012, 0, y - hgt / 2, z);
-  box(g, MAT.metal, b, hgt, 0.012, -w / 2, y, z);
-  box(g, MAT.metal, b, hgt, 0.012, w / 2, y, z);
-  add(g, PLANE, MAT.glass, [w - b, hgt - b, 1], [0, y, z]);
-  return y;
+  const t = 0.0025;
+  const d = 0.007;
+  // Cuerpo tan ancho como la ventana y, si la base es más alta, un soporte debajo
+  const [bw, bh, bd] = base;
+  const ch = Math.min(bh, 0.012);
+  if (bh > ch) box(g, MAT.metal, bw, bh - ch, bd, 0, top + (bh - ch) / 2, z);
+  box(g, MAT.metal, w, ch, bd, 0, top + bh - ch / 2, z);
+  const y0 = top + bh;
+  const zf = z - bd / 2 + d; // delante, sobre la base
+  const geo = hoodGeometries(w, hgt, Math.min(w, hgt) * 0.3, t, d);
+  add(g, geo.frame, MAT.metal, [1, 1, 1], [0, y0, zf]);
+  add(g, geo.glass, MAT.glass, [1, 1, 1], [0, y0, zf]);
+  // Los postes se ensanchan por dentro en su parte baja
+  const sh = hgt * 0.3;
+  for (const s of [-1, 1]) box(g, MAT.metal, t, sh, d, s * (w / 2 - t * 1.5), y0 + sh / 2, zf);
+  return y0 + hgt / 2;
 }
 
 /** Miras de hierro de fusil: diópter atrás y guion con orejetas delante. */
@@ -131,17 +175,9 @@ function buildSight(g, sight, level, top, len, pistol) {
   if (sight === 'reddot' && pistol) {
     // Reflex de pistola sobre una base alta, para que el tambor quede bien por
     // debajo del punto de mira
-    return { y: reflex(g, top, z, 0.042, 0.032, [0.026, 0.02, 0.034]), z, eye: 0.2 };
+    return { y: reflex(g, top, z, 0.042, 0.028, [0.026, 0.02, 0.034]), z, eye: 0.2 };
   }
-  if (sight === 'reddot') {
-    // Red dot: marco circular con cristal
-    const r = 0.017;
-    box(g, MAT.metal, 0.03, 0.012, 0.04, 0, top + 0.006, z);
-    const y = top + 0.012 + r;
-    add(g, RING, MAT.metal, [r, r, r * 2.5], [0, y, z]);
-    add(g, DISC, MAT.glass, [r, r, 1], [0, y, z]);
-    return { y, z, eye: 0.22 };
-  }
+  if (sight === 'reddot') return { y: reflex(g, top, z, 0.04, 0.026, [0.04, 0.012, 0.04]), z, eye: 0.22 };
   // Visor: tubo abierto con campanas en los extremos
   const r = level === 'sniper' ? 0.018 : 0.016;
   const tl = { medium: 0.1, high: 0.13, sniper: 0.2 }[level] ?? 0.13;
@@ -266,7 +302,7 @@ export class Viewmodel {
   }
 
   fire() {
-    this.kick = Math.min(1.4, this.kick + this.current.kick);
+    if (this.settings.viewmodelRecoil) this.kick = Math.min(1.4, this.kick + this.current.kick);
     if (!this.settings.muzzleFlash) return;
     this.flashTime = FLASH_TIME;
     this.flash.material.rotation = Math.random() * Math.PI * 2;

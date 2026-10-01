@@ -302,6 +302,8 @@ export default {
   'field.viewmodelFov': 'Weapon FOV',
   'field.viewmodelFov.hint': "Only changes the weapon's size on screen, not the view FOV.",
   'field.viewmodelSway': 'Weapon inertia and sway',
+  'field.viewmodelRecoil': 'Visual recoil',
+  'field.viewmodelRecoil.hint': 'Only the weapon moves: shots always go to the center of the crosshair.',
   'field.muzzleFlash': 'Muzzle flash',
   'field.tracers': 'Tracers',
   'field.tracers.hint': 'Visual only: the bullet has already hit the center of the crosshair.',
