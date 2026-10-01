@@ -301,6 +301,8 @@ export default {
   'field.viewmodelFov': 'FOV del arma',
   'field.viewmodelFov.hint': 'Solo cambia el tamaño del arma en pantalla, no el FOV de la vista.',
   'field.viewmodelSway': 'Inercia y balanceo del arma',
+  'field.viewmodelRecoil': 'Retroceso visual',
+  'field.viewmodelRecoil.hint': 'Solo se mueve el arma: las balas siempre van al centro de la mira.',
   'field.muzzleFlash': 'Fogonazo',
   'field.tracers': 'Trazadoras',
   'field.tracers.hint': 'Solo visuales: la bala ya ha impactado en el centro de la mira.',
