@@ -1,4 +1,4 @@
-import { WEAPONS, sightKey } from './weapons.js';
+import { WEAPONS, sightKey, defaultSight } from './weapons.js';
 import { SHOT_SOUNDS, HIT_SOUNDS } from './audio.js';
 import { LANGUAGES } from './i18n.js';
 import { WORLD_STYLES } from './world.js';
@@ -54,8 +54,8 @@ export const DEFAULTS = {
   adsTimeOverride: 0,
 
   // Armas: mira elegida para cada una (`sightAr`, `sightSmg`…). Decide el FOV
-  // de ADS en ambos modos. Por defecto, la primera de `sights` (la del arma).
-  ...Object.fromEntries(Object.entries(WEAPONS).map(([k, w]) => [sightKey(k), Object.keys(w.sights)[0]])),
+  // de ADS en ambos modos. Por defecto, el red dot si lo admite (`defaultSight`).
+  ...Object.fromEntries(Object.keys(WEAPONS).map((k) => [sightKey(k), defaultSight(k)])),
 
   // Sesión (Sandbox). `scenario` es el escenario elegido en Sandbox; en
   // Escenarios se juega el de la ficha abierta.
