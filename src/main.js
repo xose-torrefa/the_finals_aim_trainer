@@ -12,7 +12,7 @@ import { Viewmodel } from './viewmodel.js';
 import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios/index.js';
 import { addEntry } from './history.js';
-import { AimAnalysis } from './analysis.js';
+import { AimAnalysis, analysisFields } from './analysis.js';
 import { routineName } from './routines.js';
 import { t, setLanguage } from './i18n.js';
 
@@ -54,9 +54,11 @@ window.addEventListener('resize', () => {
 
 // ---- Estado ----
 const player = { pos: new THREE.Vector3(0, EYE_HEIGHT, 0), yaw: 0, pitch: 0 };
-// 'menu' | 'ready' (esperando el clic) | 'countdown' | 'playing' | 'paused' | 'results'
+// 'menu' | 'ready' (esperando el clic) | 'countdown' | 'playing' | 'paused'
+// | 'finished' (resultado rápido sobre la escena, con el ratón capturado) | 'results'
 let state = 'menu';
 let session = null;
+let finished = null; // resultados de la partida mientras se ve el resultado rápido
 let lastPlayed = null; // { key, ranked } de la última partida, para reiniciar desde los resultados
 // Rutina en curso: { def, index, results: [{ key, t, score }] }. Se abandona al jugar otra cosa o salir.
 let routine = null;
@@ -162,9 +164,11 @@ function startSession(key, ranked) {
   viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight, ctx.weapon.level);
   viewmodel.reset();
   lastPlayed = { key, ranked };
+  finished = null;
   adsT = 0;
   shotTimer = 0;
   input.ads = false;
+  input.consumeMouse(); // lo que se movió el ratón en el resultado rápido no cuenta
 
   menu.hide();
   menu.setPaused(null);
@@ -186,7 +190,7 @@ function startRoutine(def) {
 }
 
 function nextRoutineStep() {
-  if (!routine || routine.index + 1 >= routine.def.steps.length) return;
+  if (!routineHasNext()) return;
   routine.index++;
   startSession(routine.def.steps[routine.index], true);
 }
@@ -259,7 +263,9 @@ async function requestLock() {
 }
 
 input.onLockChange = (locked) => {
-  if (locked && session && (state === 'ready' || state === 'paused')) {
+  if (!locked && state === 'finished') {
+    openResults();
+  } else if (locked && session && (state === 'ready' || state === 'paused')) {
     beginCountdown();
   } else if (!locked && (state === 'playing' || state === 'countdown')) {
     state = 'paused';
@@ -275,8 +281,12 @@ document.addEventListener('keydown', (e) => {
   } else if (e.code === 'Escape' && input.locked) {
     // Con la Keyboard Lock (pantalla completa del botón) el navegador no suelta el ratón con Esc
     input.unlock();
+  } else if (e.code === 'Enter' && state === 'finished' && settings.restartKey !== 'Enter') {
+    e.preventDefault();
+    if (routineHasNext()) nextRoutineStep();
+    else openResults();
   } else if (e.code === settings.restartKey) {
-    const inGame = ['ready', 'countdown', 'playing', 'paused'].includes(state);
+    const inGame = ['ready', 'countdown', 'playing', 'paused', 'finished'].includes(state);
     if (inGame || (state === 'results' && menu.page === 'results')) {
       e.preventDefault();
       restartSession();
@@ -285,38 +295,68 @@ document.addEventListener('keydown', (e) => {
 });
 
 function finishSession() {
-  state = 'results';
   const { def, scenario, stats, ctx, key, ranked, analysis } = session;
   const score = scenario.score(stats);
-  const t = Date.now();
+  const aim = analysis.result();
+  const time = Date.now();
+  let entries = [];
   if (ranked) {
     const s = ctx.settings;
     const w = ctx.weapon;
     const hipV = hipVFovDeg(s, camera.aspect);
     const hipDpc = hipDegPerCount(s);
     const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
-    addEntry(key, def, {
-      t,
+    entries = addEntry(key, def, {
+      t: time,
       score,
       accuracy: stats.shots > 0 ? (100 * stats.hits) / stats.shots : null,
       cm360: cm360FromDegPerCount(hipDpc, s.dpi),
       adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
       fov: s.fov,
+      ...analysisFields(aim),
     });
   }
   const rows = scenario.summary(stats);
-  input.unlock();
   hud.hide();
-  overlay.hide();
   endScenario();
   let progress = null;
   if (routine) {
     // Si se repite un paso, cuenta la última partida
-    routine.results[routine.index] = { key, t, score };
+    routine.results[routine.index] = { key, t: time, score };
     progress = { def: routine.def, index: routine.index, results: [...routine.results] };
   }
-  menu.showResults({ key, ranked, t, weapon: ctx.weapon.key, score, rows, analysis: analysis.result(), routine: progress });
+  const results = { key, ranked, t: time, weapon: ctx.weapon.key, score, rows, analysis: aim, routine: progress };
+  if (settings.quickResults && input.locked) {
+    // Resultado rápido: el ratón sigue capturado para repetir al momento
+    state = 'finished';
+    finished = results;
+    const next = routineHasNext() ? routine.def.steps[routine.index + 1] : null;
+    overlay.showFinished({
+      eyebrow: menu.resultsEyebrow(results),
+      name: scenarioName(key),
+      score: SCENARIOS[key].formatScore(score),
+      badges: menu.resultBadges(results, entries),
+      rows,
+      keys: next
+        ? t('finished.keysNext', { key: keyLabel(settings.restartKey), name: scenarioName(next) })
+        : t('finished.keys', { key: keyLabel(settings.restartKey) }),
+    });
+  } else {
+    finished = results;
+    openResults();
+  }
 }
+
+/** Del resultado rápido (o del final de la partida) a la página de resultados. */
+function openResults() {
+  state = 'results';
+  overlay.hide();
+  input.unlock();
+  menu.showResults(finished);
+  finished = null;
+}
+
+const routineHasNext = () => Boolean(routine && routine.index + 1 < routine.def.steps.length);
 
 // ---- Juego ----
 const raycaster = new THREE.Raycaster();

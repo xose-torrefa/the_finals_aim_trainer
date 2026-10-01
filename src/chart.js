@@ -130,3 +130,115 @@ export function progressChart(entries, format, tickFormat = (v) => String(v), { 
   hit.addEventListener('pointerleave', hide);
   return wrap;
 }
+
+const sensKey = (v) => Math.round(v * 10) / 10;
+
+/**
+ * Partidas agrupadas por sensibilidad (redondeada a 0,1 cm/360), de menor a mayor.
+ * @param field 'cm360' | 'adsCm360'
+ * @returns [{ value, n, avg, best, last }]
+ */
+export function sensGroups(entries, field) {
+  const groups = new Map();
+  for (const e of entries) {
+    if (!Number.isFinite(e[field])) continue;
+    const value = sensKey(e[field]);
+    const g = groups.get(value) ?? { value, n: 0, sum: 0, best: -Infinity, last: 0 };
+    g.n++;
+    g.sum += e.score;
+    g.best = Math.max(g.best, e.score);
+    g.last = Math.max(g.last, e.t);
+    groups.set(value, g);
+  }
+  return [...groups.values()]
+    .map(({ sum, ...g }) => ({ ...g, avg: sum / g.n }))
+    .sort((a, b) => a.value - b.value);
+}
+
+/** Decimales que necesitan las etiquetas de unos ticks. */
+const tickDecimals = (ticks) => (ticks.length > 1 ? Math.max(0, Math.min(2, -Math.floor(Math.log10(ticks[1] - ticks[0]) + 1e-9))) : 0);
+
+/**
+ * Puntuación frente a sensibilidad: un punto por partida (más opaco cuanto más
+ * reciente) y la media de cada sensibilidad. La cruceta se engancha a la
+ * sensibilidad más cercana en X.
+ * @param entries partidas en orden cronológico
+ * @param field   'cm360' | 'adsCm360'
+ */
+export function sensChart(entries, field, format, tickFormat = (v) => String(v), { width: W = 460, height: H = 170 } = {}) {
+  const P = { ...PAD, b: 34 };
+  const wrap = document.createElement('div');
+  wrap.className = 'chart';
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': t('sens.aria') });
+  wrap.append(root);
+
+  const runs = entries.filter((e) => Number.isFinite(e[field]));
+  const groups = sensGroups(runs, field);
+  const values = groups.map((g) => g.value);
+  const pad = Math.max(0.1, (values.at(-1) - values[0]) * 0.06);
+  const xTicks = niceTicks(values[0] - pad, values.at(-1) + pad, 5);
+  const yTicks = niceTicks(Math.min(...runs.map((e) => e.score)), Math.max(...runs.map((e) => e.score)));
+  const [xMin, xMax, yMin, yMax] = [xTicks[0], xTicks.at(-1), yTicks[0], yTicks.at(-1)];
+  const plotW = W - P.l - P.r;
+  const plotH = H - P.t - P.b;
+  const x = (v) => P.l + ((v - xMin) / (xMax - xMin)) * plotW;
+  const y = (v) => P.t + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  for (const tick of yTicks) {
+    root.append(svg('line', { class: 'grid', x1: P.l, x2: W - P.r, y1: y(tick), y2: y(tick) }));
+    const label = svg('text', { class: 'tick', x: P.l - 6, y: y(tick), 'text-anchor': 'end', 'dominant-baseline': 'middle' });
+    label.textContent = tickFormat(tick);
+    root.append(label);
+  }
+  const decimals = tickDecimals(xTicks);
+  for (const tick of xTicks) {
+    const label = svg('text', { class: 'tick', x: x(tick), y: H - 18, 'text-anchor': 'middle' });
+    label.textContent = tick.toFixed(decimals);
+    root.append(label);
+  }
+  const axis = svg('text', { class: 'tick', x: W - P.r, y: H - 2, 'text-anchor': 'end' });
+  axis.textContent = t(`sens.${field}`);
+  root.append(axis);
+
+  // Más opaco cuanto más reciente: la práctica también sube la puntuación
+  runs.forEach((e, i) => root.append(svg('circle', {
+    class: 'dot run',
+    cx: x(sensKey(e[field])),
+    cy: y(e.score),
+    r: 3.5,
+    'fill-opacity': (0.2 + (0.8 * (i + 1)) / runs.length).toFixed(2),
+  })));
+  for (const g of groups) {
+    root.append(svg('line', { class: 'mean', x1: x(g.value) - 10, x2: x(g.value) + 10, y1: y(g.avg), y2: y(g.avg) }));
+  }
+
+  const cross = svg('line', { class: 'cross hidden', y1: P.t, y2: P.t + plotH });
+  const hit = svg('rect', { class: 'hit', x: P.l - 8, y: 0, width: plotW + 16, height: H });
+  root.append(cross, hit);
+  const tip = document.createElement('div');
+  tip.className = 'chart-tip hidden';
+  wrap.append(tip);
+
+  hit.addEventListener('pointermove', (ev) => {
+    const rect = root.getBoundingClientRect();
+    const sx = ((ev.clientX - rect.left) / rect.width) * W;
+    const g = groups.reduce((a, b) => (Math.abs(x(b.value) - sx) < Math.abs(x(a.value) - sx) ? b : a));
+    cross.setAttribute('x1', x(g.value));
+    cross.setAttribute('x2', x(g.value));
+    cross.classList.remove('hidden');
+    tip.replaceChildren(
+      Object.assign(document.createElement('strong'), { textContent: `${g.value.toFixed(1)} ${t(`sens.${field}`)}` }),
+      Object.assign(document.createElement('span'), {
+        textContent: t('sens.tip', { n: g.n, avg: format(Math.round(g.avg * 10) / 10), best: format(g.best) }),
+      }),
+    );
+    tip.classList.remove('hidden');
+    const px = (x(g.value) / W) * rect.width;
+    tip.style.left = `${Math.max(0, Math.min(rect.width - tip.offsetWidth, px - tip.offsetWidth / 2))}px`;
+  });
+  hit.addEventListener('pointerleave', () => {
+    cross.classList.add('hidden');
+    tip.classList.add('hidden');
+  });
+  return wrap;
+}

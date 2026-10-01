@@ -15,7 +15,9 @@ No install, no account, no tracking. Everything runs in your browser and your da
 - **Light, Medium and Heavy humanoid targets** (in Sandbox and the point-blank hipfire scenario) whose hitbox is the model itself: arms and legs count, the gap between the legs doesn't.
 - **Scenarios vs. Sandbox.** Scenarios have fixed settings so scores stay comparable over time; Sandbox lets you tweak everything.
 - **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
-- **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot.
+- **Score by sensitivity.** If you have played a scenario with more than one sensitivity, its page compares your scores for each hipfire or ADS cm/360.
+- **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot. Its main measures are saved with each run, so you can see them improve over time.
+- **Quick results.** When a run ends your score shows over the game without releasing the mouse: press R to go again, Enter to continue.
 - **Routines.** Built-in playlists (Warm-up, Tracking, Flicks and precision) plus your own.
 - **Your sight for each weapon** (iron sights, red dot or scope; red dot by default when the weapon has one), which sets the ADS zoom as in the game.
 - **Customizable crosshair** with separate hipfire and ADS profiles, and **crosshair codes** to share yours or import someone else's.
@@ -31,7 +33,7 @@ No install, no account, no tracking. Everything runs in your browser and your da
 | Shoot | Left click |
 | ADS | Right click |
 | Move | WASD |
-| Restart | R (configurable) |
+| Restart / play again | R (configurable) |
 | Pause | Esc |
 
 Each run starts paused: click to capture the mouse and a countdown begins (3 s by default, configurable in Settings → Game). Play in fullscreen (button or F11) so the view matches the game.
