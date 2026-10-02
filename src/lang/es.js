@@ -48,6 +48,8 @@ export default {
   'scenario.precision.desc': 'Una esfera pequeña que reaparece a pocos grados de la anterior. Microajustes en ADS.',
   'scenario.airtrack': 'Tracking 3D',
   'scenario.airtrack.desc': 'Una esfera flotante se desliza en curvas suaves en las tres dimensiones, también en vertical, sin cambios bruscos de dirección.',
+  'scenario.wavetrack': 'Tracking en onda',
+  'scenario.wavetrack.desc': 'Una esfera cruza un cajón alargado de pared a pared a velocidad constante, ondulando suavemente arriba y abajo, y da la vuelta en seco al llegar a cada extremo.',
   'group.situations': 'Situaciones de The Finals',
   'scenario.aerial': 'Jump pads',
   'scenario.aerial.desc': 'El objetivo no para de usar jump pads y se mueve de lado mientras cae. Síguelo en el aire y al aterrizar.',

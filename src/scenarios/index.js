@@ -30,6 +30,7 @@ import hipfire from './hipfire.js';
 import gridshot from './gridshot.js';
 import precision from './precision.js';
 import airtrack from './airfollow.js';
+import wavetrack from './wavefollow.js';
 
 export { createStats } from './base.js';
 
@@ -39,7 +40,7 @@ export { createStats } from './base.js';
 const LIST = [
   basictrack, tracking, closetrack, duel, switching, flick,
   aerial, range, peek, movetrack, rooftop, hipfire,
-  gridshot, precision, airtrack,
+  gridshot, precision, airtrack, wavetrack,
 ];
 
 const GROUPS = ['humanoids', 'situations', 'spheres'];

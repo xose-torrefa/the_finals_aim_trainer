@@ -49,6 +49,8 @@ export default {
   'scenario.precision.desc': 'A small sphere that respawns a few degrees away from the previous one. Micro-adjustments in ADS.',
   'scenario.airtrack': '3D tracking',
   'scenario.airtrack.desc': 'A floating sphere glides along smooth curves in all three dimensions, vertical included, with no sudden changes of direction.',
+  'scenario.wavetrack': 'Wave tracking',
+  'scenario.wavetrack.desc': 'A sphere crosses a long box from wall to wall at a constant speed, waving smoothly up and down, and turns back sharply when it hits each end.',
   'group.situations': 'The Finals situations',
   'scenario.aerial': 'Jump pads',
   'scenario.aerial.desc': 'The target keeps launching itself off jump pads and air-strafes while it falls. Track it in the air and on landing.',
