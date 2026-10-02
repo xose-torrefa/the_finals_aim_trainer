@@ -74,7 +74,7 @@ The base classes in [`src/scenarios/base.js`](src/scenarios/base.js) cover most 
 
 If your scenario needs its own class, put it in the scenario's file, the way `peek.js` does. Move code into `base.js` only when several scenarios share it.
 
-Target behaviour is configured with options. For humanoids, these go to `sc.newTarget(opts)`: `hp`, `move`, `lane`, and `ai` (jumps, dashes, direction changes, depth, jump pads…; see `DEFAULT_AI` in [`src/target.js`](src/target.js)). For spheres they go to `sc.newSphere(opts)`. If you add a new option to `target.js`, its default must keep the current behaviour, so existing scenarios don't change.
+Target behaviour is configured with options. For humanoids, these go to `sc.newTarget(opts)`: `hp`, `move`, `lane`, and `ai` (jumps, dashes, direction changes, depth, jump pads, smooth paths with `smooth: true`…; see `DEFAULT_AI` in [`src/target.js`](src/target.js)). For spheres they go to `sc.newSphere(opts)`. If you add a new option to `target.js`, its default must keep the current behaviour, so existing scenarios don't change.
 
 A scenario with its own class implements `update(dt)`, `onHit(target, part, { dealt, killed })`, `live(stats)`, `score(stats)`, `summary(stats)` and `dispose()`. `summary` returns `[textKey, value]` pairs, and new text keys go in `src/lang/`.
 
