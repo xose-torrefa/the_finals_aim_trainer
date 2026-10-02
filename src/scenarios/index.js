@@ -11,7 +11,7 @@
 //   score          cómo se muestra la puntuación (`SCORE_FORMATS`)
 //   create(ctx)    crea la instancia (clases en base.js)
 // Textos en i18n: `scenario.<clave>`, `scenario.<clave>.desc` y `group.<grupo>`.
-import { weaponName } from '../weapons.js';
+import { WEAPONS, TRAINER_RPM, weaponName } from '../weapons.js';
 import { CLASSES } from '../target.js';
 import { sanitizeSettings } from '../settings.js';
 import { t, hasText } from '../i18n.js';
@@ -53,9 +53,12 @@ const SCORE_FORMATS = {
 // completa con su `fixed`. Si cambias la configuración efectiva de un escenario,
 // sube su `version`: el historial se separa por versión.
 // La mira no está aquí: es de cada jugador (Ajustes → Armas), como la sens o el FOV.
+// Cadencia `trainer` (automáticas a 1200 RPM con el DPS del arma): la puntuación de
+// tracking es el tiempo en objetivo, así que no depende de ella. Los escenarios
+// que puntúan kills con automáticas fijan 'weapon' para conservar el TTK del juego.
 export const RANKED_BASE = {
   adsTimeOverride: 0,
-  fireRate: 'weapon',
+  fireRate: 'trainer',
   targetClass: 'medium',
   targetModel: 'capsule',
   targetDistance: 20,
@@ -106,6 +109,7 @@ export function fixedParts(key) {
   const parts = [weaponName(s.weapon, true)];
   if (!def.spheres) parts.push(CLASSES[s.targetClass].name, def.distanceLabel ?? `${s.targetDistance} m`);
   if (s.fireRate === 'free') parts.push(t('chip.freeFire'));
+  else if (s.fireRate === 'trainer' && WEAPONS[s.weapon].auto) parts.push(t('chip.trainerFire', { rpm: TRAINER_RPM }));
   if (s.allowMove) parts.push(t('chip.move'));
   parts.push(`${s.duration} s`);
   return parts;

@@ -157,7 +157,7 @@ export default {
   key: 'peek',
   group: 'situations',
   version: 1,
-  fixed: { weapon: 'ar' },
+  fixed: { weapon: 'ar', fireRate: 'weapon' },
   distanceLabel: '16 m',
   score: 'kills',
   create: (ctx) => new PeekScenario(ctx),

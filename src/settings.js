@@ -61,9 +61,10 @@ export const DEFAULTS = {
   // Escenarios se juega el de la ficha abierta.
   scenario: 'tracking',
   weapon: 'ar',
-  // Cadencia: 'weapon' = los rpm del arma; 'free' = cada clic dispara al momento
-  // (para entrenar puntería sin simular el arma; mantener pulsado sigue a los rpm)
-  fireRate: 'weapon',
+  // Cadencia: 'trainer' = automáticas a TRAINER_RPM con el mismo DPS (como en los
+  // aim trainers); 'weapon' = los rpm del arma; 'free' = cada clic dispara al
+  // momento (para entrenar puntería sin simular el arma; mantener pulsado sigue a los rpm)
+  fireRate: 'trainer',
   duration: 60,
 
   // Partida. quickResults: al acabar, resultado sobre la escena sin soltar el ratón
@@ -240,7 +241,7 @@ export const SETTINGS_SCHEMA = [
     page: 'sandbox',
     fields: [
       { key: 'weapon', type: 'select', options: opts('weapon', Object.keys(WEAPONS)) },
-      { key: 'fireRate', type: 'select', options: opts('fireRate', ['weapon', 'free']) },
+      { key: 'fireRate', type: 'select', options: opts('fireRate', ['trainer', 'weapon', 'free']) },
       { key: 'adsTimeOverride', type: 'number', min: 0, max: 2000, step: 10 },
     ],
   },

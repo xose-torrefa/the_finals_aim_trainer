@@ -54,7 +54,7 @@ export default {
 | `group` | Which section of the menu it appears in. |
 | `spheres` | Optional. `true` if the targets are spheres: the card then hides target class and distance. |
 | `version` | Starts at 1. See [Versions](#versions). |
-| `fixed` | Settings forced in Scenarios mode, on top of `RANKED_BASE` in `index.js` (medium targets at 20 m, 60 s, weapon fire rate…). Keys and values must be valid settings (see `DEFAULTS` in `src/settings.js`). |
+| `fixed` | Settings forced in Scenarios mode, on top of `RANKED_BASE` in `index.js` (medium targets at 20 m, 60 s, `trainer` fire rate: automatics at 1200 RPM with the weapon's DPS…). Scenarios scored by kills with an automatic set `fireRate: 'weapon'` to keep the game's TTK. Keys and values must be valid settings (see `DEFAULTS` in `src/settings.js`). |
 | `distanceLabel` | Optional. Distance shown on the card when it isn't `targetDistance` (e.g. `'7 m'`, `'8–44 m'`). |
 | `score` | How the score is shown and charted. |
 | `create(ctx)` | Returns the scenario instance for one run. |

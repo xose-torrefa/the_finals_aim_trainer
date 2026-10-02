@@ -8,11 +8,25 @@ export const HIT_SOUNDS = ['blip', 'tick', 'ding'];
 // Pequeña variación de tono por disparo para que el fuego automático no canse
 const jitter = () => 0.95 + Math.random() * 0.1;
 
+// Separación mínima (s) entre dos disparos o dos impactos que suenan. Como en los
+// aim trainers, a 1200 RPM no suena cada bala (sonaría a zumbido): suena una de
+// cada dos, ~600 por minuto. No afecta a las cadencias reales (900 RPM o menos).
+const MIN_GAP = 0.06;
+
 export class Sfx {
   constructor(settings) {
     this.settings = settings;
     this.ctx = null;
     this.noiseBuf = null;
+    this.lastPlayed = {};
+  }
+
+  /** Si ya toca que vuelva a sonar `kind` (ver MIN_GAP), y apunta que suena. */
+  due(kind) {
+    const now = this.ctx.currentTime;
+    if (now - (this.lastPlayed[kind] ?? -Infinity) < MIN_GAP) return false;
+    this.lastPlayed[kind] = now;
+    return true;
   }
 
   /** Debe llamarse desde un gesto del usuario (clic). */
@@ -68,7 +82,7 @@ export class Sfx {
 
   shot() {
     const v = this.vol('shot');
-    if (v <= 0) return;
+    if (v <= 0 || !this.due('shot')) return;
     const r = jitter();
     switch (this.settings.shotSound) {
       case 'punch':
@@ -94,7 +108,7 @@ export class Sfx {
 
   hit(head) {
     const v = this.vol('hit');
-    if (v <= 0) return;
+    if (v <= 0 || !this.due('hit')) return;
     switch (this.settings.hitSound) {
       case 'tick':
         this.tone({ from: head ? 2600 : 1800, duration: 0.03, gain: v * 0.3 });

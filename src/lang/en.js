@@ -64,6 +64,7 @@ export default {
   'scenario.hipfire.desc': 'A Light 2.5–6 m away circles around you, moving in and out, with the odd jump and its two dash charges (5 s to recharge each). Kill it from the hip and another one spawns.',
   'chip.move': 'WASD movement',
   'chip.freeFire': 'Free fire rate',
+  'chip.trainerFire': '{rpm} RPM',
 
   // Estadísticas e historial
   'stat.best': 'Best',
@@ -335,7 +336,8 @@ export default {
   'sound.ding': 'Bell',
   'field.weapon': 'Weapon',
   'field.fireRate': 'Fire rate',
-  'field.fireRate.hint': "Free: every click fires instantly, to train your aim without the weapon's limit. Holding an automatic still fires at its rate.",
+  'field.fireRate.hint': "Trainer: automatics fire at 1200 RPM like in aim trainers, with less damage per bullet so DPS and TTK stay the weapon's. Free: every click fires instantly, to train your aim without the weapon's limit. Holding an automatic still fires at its rate.",
+  'fireRate.trainer': 'Trainer (1200 RPM)',
   'fireRate.weapon': "Weapon's",
   'fireRate.free': 'Free',
   'field.adsTimeOverride': 'ADS time ms (0 = weapon)',
