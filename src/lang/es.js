@@ -63,6 +63,7 @@ export default {
   'scenario.hipfire.desc': 'Un Light a 2,5–6 m da vueltas a tu alrededor, acercándose y alejándose, con algún salto y sus dos cargas de dash (5 s para recargar cada una). Mátalo desde la cadera y aparece otro.',
   'chip.move': 'Movimiento WASD',
   'chip.freeFire': 'Cadencia libre',
+  'chip.trainerFire': '{rpm} RPM',
 
   // Estadísticas e historial
   'stat.best': 'Récord',
@@ -334,7 +335,8 @@ export default {
   'sound.ding': 'Campana',
   'field.weapon': 'Arma',
   'field.fireRate': 'Cadencia',
-  'field.fireRate.hint': 'Libre: cada clic dispara al momento, para entrenar la puntería sin el límite del arma. Mantener pulsada una automática sigue a su cadencia.',
+  'field.fireRate.hint': 'Trainer: las automáticas disparan a 1200 RPM como en los aim trainers, con menos daño por bala para que el DPS y el TTK sigan siendo los del arma. Libre: cada clic dispara al momento, para entrenar la puntería sin el límite del arma. Mantener pulsada una automática sigue a su cadencia.',
+  'fireRate.trainer': 'Trainer (1200 RPM)',
   'fireRate.weapon': 'La del arma',
   'fireRate.free': 'Libre',
   'field.adsTimeOverride': 'Tiempo ADS ms (0 = arma)',

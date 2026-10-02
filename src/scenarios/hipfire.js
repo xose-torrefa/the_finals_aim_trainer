@@ -137,7 +137,7 @@ export default {
   key: 'hipfire',
   group: 'situations',
   version: 1,
-  fixed: { weapon: 'smg', targetClass: 'light', targetModel: 'humanoid' },
+  fixed: { weapon: 'smg', targetClass: 'light', targetModel: 'humanoid', fireRate: 'weapon' },
   distanceLabel: '2.5–6 m',
   score: 'kills',
   create: (ctx) => new HipfireScenario(ctx),

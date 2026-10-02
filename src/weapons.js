@@ -66,6 +66,11 @@ export const WEAPONS = {
   },
 };
 
+// Cadencia `trainer`: las automáticas disparan a esta cadencia, como en los aim
+// trainers, que da un feedback continuo al hacer tracking. El daño por bala se
+// reduce en la misma proporción, así que el DPS y el TTK siguen siendo los del arma.
+export const TRAINER_RPM = 1200;
+
 export function damageAt(w, dist) {
   const [start, end, min] = w.falloff;
   if (dist <= start) return w.damage;
@@ -96,12 +101,15 @@ export function weaponSight(s, weapon) {
   return { sight, level: sights[sight] };
 }
 
-/** Arma efectiva según los ajustes: mira elegida, tiempo de ADS forzado y cadencia libre. */
+/** Arma efectiva según los ajustes: mira elegida, tiempo de ADS forzado y cadencia. */
 export function resolveWeapon(s) {
   const base = WEAPONS[s.weapon];
   const { sight, level } = weaponSight(s, s.weapon);
+  const trainer = s.fireRate === 'trainer' && base.auto;
   return {
     ...base,
+    rpm: trainer ? TRAINER_RPM : base.rpm,
+    damage: trainer ? (base.damage * base.rpm) / TRAINER_RPM : base.damage,
     key: s.weapon,
     sight,
     level,

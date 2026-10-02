@@ -64,7 +64,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 **Disparo**
 - Hitscan sin dispersión: cada bala va al centro exacto de la mira, por decisión del usuario.
-- Cadencia (`fireRate`): `weapon` = los rpm del arma; `free` (`weapon.freeFire`) = cada clic dispara al momento, para escenarios de puntería pura (Gridshot, Precisión) donde un jugador rápido iría por delante del arma. Mantener pulsada una automática sigue a sus rpm. En Escenarios va en `RANKED_BASE` (`weapon`) o en el `fixed`; en Sandbox es un ajuste. Con la cadencia real, el clic de una semiautomática antes de tiempo se pierde (sin búfer, por no inventar el comportamiento del juego) y `analysis.click()` lo cuenta como "clic antes de tiempo".
+- Cadencia (`fireRate`): `trainer` (por defecto) = las automáticas disparan a `TRAINER_RPM` (1200, como en los aim trainers) con el daño por bala reducido en proporción, así que el DPS y el TTK siguen siendo los del arma (`resolveWeapon` cambia `rpm` y `damage`); las semiautomáticas no cambian. `weapon` = los rpm del arma; `free` (`weapon.freeFire`) = cada clic dispara al momento, para escenarios de puntería pura (Gridshot, Precisión) donde un jugador rápido iría por delante del arma. Mantener pulsada una automática sigue a sus rpm. En Escenarios va en `RANKED_BASE` (`trainer`: la puntuación de tracking es el tiempo en objetivo y no depende de la cadencia) o en el `fixed` (los escenarios que puntúan kills con automáticas fijan `weapon`); en Sandbox es un ajuste. Con la cadencia real, el clic de una semiautomática antes de tiempo se pierde (sin búfer, por no inventar el comportamiento del juego) y `analysis.click()` lo cuenta como "clic antes de tiempo".
 - `castRay()` lanza el rayo contra `world.colliders` + `scenario.colliders` + `scenario.hitMeshes`.
 - Cada mesh golpeable lleva `userData = { target, part: 'head' | 'body' }`.
 - Los fallos contra el mundo dejan una marca de `impacts.js`.
@@ -123,6 +123,7 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 
 **`audio.js`: sonido**
 - Todos los sonidos se sintetizan con Web Audio (`tone()` y `noise()`), sin ficheros. Hay variantes de disparo (`SHOT_SOUNDS`) y de impacto (`HIT_SOUNDS`), y cada categoría tiene su volumen (`shotVolume`, `hitVolume`, `killVolume`, `countdownVolume`), que se multiplica por `volume`.
+- Disparos e impactos no suenan más de una vez cada `MIN_GAP` (60 ms): a 1200 RPM suena una bala de cada dos, para que no se solapen ni se vuelvan un zumbido. Las cadencias reales (≤ 900 RPM) no se ven afectadas.
 - Si añades un sonido, iguala su nivel con los demás: renderízalo con un `OfflineAudioContext` y compara el pico y el RMS.
 
 **`i18n.js`: idiomas**
