@@ -30,6 +30,90 @@ const BAR_HEIGHT = 0.07;
 const BAR_SEGMENT = 50; // HP entre marcas de la barra de vida
 
 const rand = (a, b) => a + Math.random() * (b - a);
+const smoothstep = (a, b, x) => {
+  const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return k * k * (3 - 2 * k);
+};
+
+// Trayectorias suaves (`SmoothPath`), en coordenadas normalizadas
+const TIGHTEST = 1 / 3; // radio del giro más cerrado
+const LOOKAHEAD = 0.5; // a qué distancia mira si va hacia el borde
+const SPIN_ACCEL = 2.5; // el giro tarda 1 / SPIN_ACCEL s en pasar de 0 al máximo
+
+/**
+ * Trayectoria suave dentro de un elipsoide de semiejes `half` (m), como los bots
+ * de tracking de otros aim trainers: no se para, y su rumbo gira con una
+ * velocidad angular que cambia poco a poco (rectas, curvas y círculos que lo
+ * acercan y lo alejan), sin cambios de sentido bruscos. Cerca del borde gira
+ * hacia el centro. Se calcula en coordenadas normalizadas (el elipsoide es la
+ * esfera unidad), así que por los ejes cortos va más despacio.
+ * `speed`: velocidad máxima (m/s) por el eje x. El giro más cerrado es un
+ * círculo de un tercio del elipsoide, así que no se sale aunque vaya rápido.
+ * Con `half.y = 0` se mueve en el plano del suelo.
+ */
+class SmoothPath {
+  constructor(half, speed) {
+    this.half = half.clone();
+    this.flat = half.y === 0;
+    this.speed = speed / half.x;
+    this.turn = this.speed / TIGHTEST; // rad/s
+    this.p = new THREE.Vector3();
+    this.heading = new THREE.Vector3(Math.random() < 0.5 ? -1 : 1, 0, 0); // empieza de lado
+    this.spin = new THREE.Vector3(); // velocidad angular actual (eje × rad/s)
+    this.wander = new THREE.Vector3(); // la que busca ahora
+    this.pace = rand(0.65, 1);
+    this.paceWanted = this.pace;
+    this.timer = 0;
+    this.offset = new THREE.Vector3();
+    this.tmp = new THREE.Vector3();
+    this.want = new THREE.Vector3();
+  }
+
+  /** Avanza y devuelve el desplazamiento (m) desde el centro del elipsoide. */
+  update(dt) {
+    const { p, heading, spin, tmp, want } = this;
+    this.timer -= dt;
+    if (this.timer <= 0) {
+      // Un tramo recto, una curva o un círculo, hacia cualquier lado
+      this.timer = rand(1.2, 3);
+      if (this.flat) this.wander.set(0, Math.random() < 0.5 ? -1 : 1, 0);
+      else this.wander.randomDirection().addScaledVector(heading, -this.wander.dot(heading)).normalize();
+      this.wander.multiplyScalar(Math.random() < 0.25 ? 0 : rand(0.35, 1) * this.turn);
+      this.paceWanted = rand(0.65, 1);
+    }
+    this.pace += Math.max(-0.4 * dt, Math.min(0.4 * dt, this.paceWanted - this.pace));
+    const step = this.speed * this.pace;
+
+    // Si siguiendo recto se acerca al borde, gira hacia el centro
+    tmp.copy(p).addScaledVector(heading, LOOKAHEAD);
+    const edge = smoothstep(0.5, 0.9, tmp.length());
+    want.copy(this.wander).multiplyScalar(1 - edge);
+    if (edge > 0) {
+      tmp.negate().normalize();
+      const angle = heading.angleTo(tmp);
+      tmp.crossVectors(heading, tmp);
+      // De espaldas al centro, sigue girando hacia donde ya giraba
+      if (tmp.lengthSq() < 1e-8) tmp.copy(spin.lengthSq() > 1e-8 ? spin : this.wander);
+      if (tmp.lengthSq() < 1e-8) tmp.set(0, 1, 0);
+      want.addScaledVector(tmp.normalize(), Math.min(this.turn, angle * 3) * edge);
+    }
+
+    // El giro cambia poco a poco: sin quiebros
+    tmp.subVectors(want, spin);
+    const maxSpin = SPIN_ACCEL * this.turn * dt;
+    if (tmp.length() > maxSpin) tmp.setLength(maxSpin);
+    spin.add(tmp);
+    const w = spin.length();
+    if (w > 1e-6) {
+      heading.applyAxisAngle(tmp.copy(spin).divideScalar(w), w * dt);
+      if (this.flat) heading.y = 0;
+      heading.normalize();
+    }
+
+    p.addScaledVector(heading, step * dt);
+    return this.offset.copy(p).multiply(this.half);
+  }
+}
 
 // Parámetros del movimiento. `dashChance: null` = solo dashea la clase Light.
 // `depth`: semirrango (m) de movimiento hacia/desde el jugador.
@@ -39,9 +123,11 @@ const rand = (a, b) => a + Math.random() * (b - a);
 // velocidad vertical (m/s) con la que sale.
 // `pingpong`: recorre el carril de un extremo al otro a velocidad constante,
 // sin cambios de sentido al azar, saltos, dashes ni jump pads.
+// `smooth`: trayectoria suave (`SmoothPath`) en la elipse de semiejes `lane` y
+// `depth` (> 0), a la velocidad de la clase; sin saltos, dashes ni jump pads.
 const DEFAULT_AI = {
   changeMin: 0.25, changeMax: 1.1, flipChance: 0.75, jumpChance: 0.18, dashChance: null,
-  depth: 0, depthSpeed: 0.6, sweep: false, padChance: 0, padSpeed: 14, pingpong: false,
+  depth: 0, depthSpeed: 0.6, sweep: false, padChance: 0, padSpeed: 14, pingpong: false, smooth: false,
 };
 
 export function pickClass(setting) {
@@ -145,6 +231,9 @@ export class Target {
     this.depthDir = this.ai.sweep ? 1 : 0;
     this.dir = Math.random() < 0.5 ? -1 : 1;
     this.changeTimer = rand(0.2, 0.9);
+    this.path = this.ai.smooth
+      ? new SmoothPath(new THREE.Vector3(this.lane, 0, this.ai.depth), this.cls.speed * this.speedScale)
+      : null;
     this.dashTimer = 0;
     this.y = 0;
     this.vy = 0;
@@ -231,6 +320,15 @@ export class Target {
   }
 
   updateStrafe(dt) {
+    if (this.path) {
+      const off = this.path.update(dt);
+      this.lateral = off.x;
+      this.depth = off.z;
+      this.group.position.copy(this.anchor)
+        .addScaledVector(this.axis, this.lateral)
+        .addScaledVector(this.depthAxis, this.depth);
+      return;
+    }
     const ai = this.ai;
     this.changeTimer -= dt;
     if (this.changeTimer <= 0 && !ai.pingpong) {
@@ -293,11 +391,10 @@ export class Target {
 }
 
 const sphereGeometry = new THREE.SphereGeometry(1, 24, 16);
-const scratch = new THREE.Vector3();
 
 /**
  * Esfera flotante. Misma interfaz que Target (hitMeshes, update, applyDamage, dispose).
- * move: 'static' | 'float' (trayectoria 3D suave dentro de una caja `bounds`).
+ * move: 'static' | 'float' (`SmoothPath` a `speed` m/s en el elipsoide `bounds`, desde su centro).
  */
 export class SphereTarget {
   constructor(scene, { radius, hp = 1, move = 'static', speed = 0, bounds = null }) {
@@ -308,8 +405,8 @@ export class SphereTarget {
     this.spawnTime = 0;
     this.firstHitTime = null;
     this.move = move;
-    this.speed = speed;
     this.bounds = bounds; // { center: Vector3, half: Vector3 }
+    this.path = move === 'float' ? new SmoothPath(bounds.half, speed) : null;
     this.flash = 0;
 
     this.mat = new THREE.MeshStandardMaterial({ color: 0xff2e63, roughness: 0.35, emissive: 0xffffff, emissiveIntensity: 0 });
@@ -318,9 +415,6 @@ export class SphereTarget {
     this.group.userData = { target: this, part: 'body' };
     this.hitMeshes = [this.group];
 
-    this.velocity = new THREE.Vector3();
-    this.wanted = new THREE.Vector3();
-    this.changeTimer = 0;
     this.aim = { center: this.group.position, half: 0, radius };
     scene.add(this.group);
   }
@@ -341,27 +435,7 @@ export class SphereTarget {
   }
 
   updateFloat(dt) {
-    this.changeTimer -= dt;
-    if (this.changeTimer <= 0) {
-      // Nueva dirección deseada; el movimiento vertical pesa algo menos
-      this.wanted.set(rand(-1, 1), rand(-0.7, 0.7), rand(-0.4, 0.4)).normalize().multiplyScalar(this.speed);
-      this.changeTimer = rand(0.35, 1.2);
-    }
-    const maxDv = this.speed * 3 * dt;
-    const dv = scratch.subVectors(this.wanted, this.velocity);
-    if (dv.length() > maxDv) dv.setLength(maxDv);
-    this.velocity.add(dv);
-
-    const p = this.group.position.addScaledVector(this.velocity, dt);
-    const { center, half } = this.bounds;
-    for (const axis of ['x', 'y', 'z']) {
-      const min = center[axis] - half[axis];
-      const max = center[axis] + half[axis];
-      if ((p[axis] < min && this.velocity[axis] < 0) || (p[axis] > max && this.velocity[axis] > 0)) {
-        this.velocity[axis] *= -1;
-        this.wanted[axis] = -Math.abs(this.wanted[axis]) * Math.sign(p[axis] - center[axis]);
-      }
-    }
+    this.group.position.copy(this.bounds.center).add(this.path.update(dt));
   }
 
   applyDamage(amount, now) {

@@ -25,12 +25,12 @@ class MoveTrackScenario extends TrackingScenario {
 export default {
   key: 'movetrack',
   group: 'situations',
-  version: 1,
+  version: 3,
   fixed: { weapon: 'ar', allowMove: true },
   distanceLabel: '12 m',
   score: 'percent',
   create: (ctx) => new MoveTrackScenario(ctx, (sc) => {
-    const t = sc.newTarget({ hp: Infinity, lane: 3.5 });
+    const t = sc.newTarget({ hp: Infinity, speedScale: 1.4 * ctx.settings.targetSpeed, lane: 4.5, ai: { smooth: true, depth: 2.5 } });
     t.place(spawnPoint(ctx.player, 12, 0), ctx.player.pos);
   }),
 };
