@@ -133,6 +133,7 @@ export default {
   'where.off.ahead': 'Sobre todo te adelantas: te anticipas o frenas tarde cuando él afloja.',
   'where.off.side': 'Sobre todo te sales de su trayectoria: te falla más el eje perpendicular a su movimiento que seguirle el ritmo.',
   'where.note': 'Orientativo: son diferencias observadas en esta partida ({on} en objetivo mientras el objetivo se movía), no causas, y solo se destacan las de más de 2,5 puntos porque las menores cambian de una partida a otra. Lento y rápido: por debajo o por encima de la velocidad mediana del objetivo en la partida. Cambiando: su velocidad varía más de la mitad en 0,2 s. Los puntos son lo que subiría la puntuación si esa situación te saliera como las demás de su grupo.',
+  'where.noteMany': 'Suma de tus últimas partidas con desglose guardado ({n}): {on} en objetivo mientras el objetivo se movía. Son diferencias observadas, no causas; se destacan las de más de {min} puntos. Lento y rápido: por debajo o por encima de la velocidad mediana del objetivo en cada partida. Cambiando: su velocidad varía más de la mitad en 0,2 s. Los puntos son lo que subiría la puntuación si esa situación te saliera como las demás de su grupo.',
   'card.trace': 'Trazado de la partida',
   'tr.mismatch': 'Desajuste de velocidad',
   'tr.range': 'Velocidad de la mira (mitad del tiempo)',
