@@ -47,6 +47,13 @@ const dateText = (time, year = false) => new Date(time).toLocaleString(locale(),
   day: '2-digit', month: '2-digit', year: year ? '2-digit' : undefined, hour: '2-digit', minute: '2-digit',
 });
 
+// Desglose de dónde se pierde el objetivo: escenario para trabajar cada situación
+const WHERE_DRILLS = { slow: 'tracking', fast: 'closetrack', turning: 'wavetrack', left: 'basictrack', right: 'basictrack', up: 'airtrack', down: 'airtrack' };
+// Puntos de % en objetivo para destacar una situación. Entre dos partidas reales
+// iguales, las diferencias de 1-2 puntos cambiaban de signo: por debajo es ruido
+const WHERE_MIN_LOSS = 2.5;
+const WHERE_OFF_SHARE = 55; // % del tiempo fuera del objetivo para decir que se pierde sobre todo por un lado
+
 const tile = (label, value, cls = '', sub = null) => h('div', { class: `tile ${cls}` }, h('span', {}, label), h('strong', {}, value), sub && h('small', {}, sub));
 const chips = (parts) => h('div', { class: 'chips' }, parts.map((p) => h('span', { class: 'chip' }, p)));
 const card = (title, ...children) => h('section', { class: 'card' }, title && h('h2', {}, title), children);
@@ -740,6 +747,7 @@ export class Menu {
     const def = SCENARIOS[r.key];
     const fmt = def.formatScore;
     const entries = r.ranked ? getHistory(r.key, def) : [];
+    const trace = r.recording && analyzeRecording(r.recording.data);
     const again = keyLabel(this.settings.restartKey);
     const retry = (primary) => h('button', { class: primary ? 'primary big' : '', onclick: () => this.handlers.onRestart() }, t('results.retry', { key: again }));
 
@@ -773,7 +781,8 @@ export class Menu {
         h('div', { class: 'actions' }, actions)),
       h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(t(k), String(v)))),
       r.analysis && this.analysisCard(r.analysis),
-      r.recording && this.traceCard(r.recording),
+      trace?.breakdown && def.score === 'percent' && this.whereCard(r.key, trace.breakdown),
+      trace && this.traceCard(r.recording, trace),
       r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
     ];
   }
@@ -985,10 +994,37 @@ export class Menu {
       h('p', { class: 'muted small' }, t('an.note')));
   }
 
+  /**
+   * Dónde se pierde el objetivo: lo que más cuesta (con un escenario para
+   * trabajarlo), el tiempo en objetivo por situación y por dónde se pierde.
+   */
+  whereCard(key, b) {
+    const pct = (x) => `${x.toFixed(0)}%`;
+    const worst = b.groups.flatMap((g) => g.rows).filter((row) => row.loss >= WHERE_MIN_LOSS).sort((x, y) => y.loss - x.loss).slice(0, 2);
+    const findings = worst.map((row) => {
+      const drill = WHERE_DRILLS[row.key];
+      return h('li', {},
+        t('where.find', { name: t(`where.${row.key}`), on: pct(row.onPct), rest: pct(row.restPct), loss: row.loss.toFixed(1) }),
+        drill && drill !== key && [' ', h('button', { class: 'link', onclick: () => this.navigate('scenario', drill) }, t('where.drill', { name: scenarioName(drill) }))]);
+    });
+    const off = b.off;
+    const side = off && Object.entries({ behind: off.behindPct, ahead: off.aheadPct, side: off.sidePct }).find(([, v]) => v >= WHERE_OFF_SHARE)?.[0];
+    return card(t('card.where'),
+      h('ul', { class: 'tips' },
+        off && h('li', {}, t('where.off', { behind: pct(off.behindPct), ahead: pct(off.aheadPct), side: pct(off.sidePct) }), side && ` ${t(`where.off.${side}`)}`),
+        findings.length ? findings : h('li', {}, t('where.even'))),
+      h('table', { class: 'history' },
+        h('thead', {}, h('tr', {},
+          h('th', {}, t('where.situation')), h('th', { class: 'num' }, t('where.share')), h('th', { class: 'num' }, t('where.on')))),
+        h('tbody', {}, b.groups.flatMap((g) => g.rows.map((row) => h('tr', {},
+          h('td', {}, t(`where.${row.key}`)),
+          h('td', { class: 'num' }, pct(row.sharePct)),
+          h('td', { class: `num ${worst.includes(row) ? 'down' : ''}` }, pct(row.onPct))))))),
+      h('p', { class: 'muted small' }, t('where.note', { on: pct(b.onPct) })));
+  }
+
   /** Trazado de la partida: fluidez del tracking, gráfica en el tiempo y exportación. */
-  traceCard(rec) {
-    const a = analyzeRecording(rec.data);
-    if (!a) return null;
+  traceCard(rec, a) {
     const sm = a.smooth;
     const pct = (x) => `${x.toFixed(0)}%`;
     return card(t('card.trace'),
