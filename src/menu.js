@@ -994,9 +994,9 @@ export class Menu {
     return card(t('card.trace'),
       sm && h('div', { class: 'tiles' },
         tile(t('tr.mismatch'), pct(sm.mismatchPct)),
-        tile(t('tr.stopped'), pct(sm.stoppedPct)),
-        tile(t('tr.stops'), sm.stopsPerSec.toFixed(1)),
-        tile(t('tr.burst'), pct(sm.burstPct))),
+        tile(t('tr.range'), t('tr.rangeValue', { slow: pct(sm.slowPct), fast: pct(sm.fastPct) })),
+        tile(t('tr.swings'), sm.swingsPerSec.toFixed(1)),
+        tile(t('tr.crossings'), sm.crossingsPerSec.toFixed(1))),
       traceChart(a.series),
       h('div', { class: 'actions' }, h('button', { onclick: () => this.exportTrace(rec) }, t('tr.export'))),
       h('p', { class: 'muted small' }, t('tr.note')));

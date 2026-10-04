@@ -43,7 +43,7 @@ export function addEntry(key, def, entry) {
 const HISTORY_KEY = /^[\w-]+@\d+$/;
 // Métricas del análisis que se guardan con cada partida (solo las que tienen datos
 // suficientes; ver `analysisFields` en analysis.js)
-export const ANALYSIS_FIELDS = ['lagMs', 'reversalOnPct', 'overPct', 'underPct', 'correctionMs', 'earlyPct'];
+export const ANALYSIS_FIELDS = ['lagMs', 'reversalOnPct', 'overPct', 'underPct', 'correctionMs', 'earlyPct', 'mismatchPct'];
 const ENTRY_FIELDS = ['t', 'score', 'accuracy', 'cm360', 'adsCm360', 'fov', ...ANALYSIS_FIELDS];
 
 /** Todo el historial, para la copia de seguridad. */
