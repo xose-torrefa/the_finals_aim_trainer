@@ -5,7 +5,7 @@ import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupNa
 import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
 import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
 import { analysisView, analysisTrendView } from './analysis.js';
-import { analyzeRecording, exportRecording } from './recording.js';
+import { analyzeRecording, exportRecording, breakdownOfEntries } from './recording.js';
 import { progressChart, sensChart, sensGroups, traceChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { encodeCrosshair, decodeCrosshair } from './crosshair-code.js';
@@ -50,8 +50,11 @@ const dateText = (time, year = false) => new Date(time).toLocaleString(locale(),
 // Desglose de dónde se pierde el objetivo: escenario para trabajar cada situación
 const WHERE_DRILLS = { slow: 'tracking', fast: 'closetrack', turning: 'wavetrack', left: 'basictrack', right: 'basictrack', up: 'airtrack', down: 'airtrack' };
 // Puntos de % en objetivo para destacar una situación. Entre dos partidas reales
-// iguales, las diferencias de 1-2 puntos cambiaban de signo: por debajo es ruido
+// iguales, las diferencias de 1-2 puntos cambiaban de signo: por debajo es ruido.
+// Al juntar `n` partidas el ruido baja con su raíz
 const WHERE_MIN_LOSS = 2.5;
+const whereMinLoss = (n) => Math.max(1, WHERE_MIN_LOSS / Math.sqrt(n));
+const WHERE_RECENT = 10; // partidas que se juntan en la ficha del escenario
 const WHERE_OFF_SHARE = 55; // % del tiempo fuera del objetivo para decir que se pierde sobre todo por un lado
 
 const tile = (label, value, cls = '', sub = null) => h('div', { class: `tile ${cls}` }, h('span', {}, label), h('strong', {}, value), sub && h('small', {}, sub));
@@ -278,6 +281,7 @@ export class Menu {
           : tile(t('stat.trendShort'), '—')),
       card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 240 })),
       this.sensCard(def, entries),
+      this.whereHistoryCard(def.key, entries),
       this.analysisTrendCard(entries),
       card(t('card.history'),
         h('table', { class: 'history' },
@@ -998,9 +1002,16 @@ export class Menu {
    * Dónde se pierde el objetivo: lo que más cuesta (con un escenario para
    * trabajarlo), el tiempo en objetivo por situación y por dónde se pierde.
    */
-  whereCard(key, b) {
+  /** Desglose de las últimas partidas juntas, para la ficha del escenario. */
+  whereHistoryCard(key, entries) {
+    const sum = breakdownOfEntries(entries.slice(-WHERE_RECENT));
+    return sum && this.whereCard(key, sum.breakdown, sum.n);
+  }
+
+  /** @param n partidas juntadas (0 = solo la que se acaba de jugar) */
+  whereCard(key, b, n = 0) {
     const pct = (x) => `${x.toFixed(0)}%`;
-    const worst = b.groups.flatMap((g) => g.rows).filter((row) => row.loss >= WHERE_MIN_LOSS).sort((x, y) => y.loss - x.loss).slice(0, 2);
+    const worst = b.groups.flatMap((g) => g.rows).filter((row) => row.loss >= whereMinLoss(n || 1)).sort((x, y) => y.loss - x.loss).slice(0, 2);
     const findings = worst.map((row) => {
       const drill = WHERE_DRILLS[row.key];
       return h('li', {},
@@ -1020,7 +1031,7 @@ export class Menu {
           h('td', {}, t(`where.${row.key}`)),
           h('td', { class: 'num' }, pct(row.sharePct)),
           h('td', { class: `num ${worst.includes(row) ? 'down' : ''}` }, pct(row.onPct))))))),
-      h('p', { class: 'muted small' }, t('where.note', { on: pct(b.onPct) })));
+      h('p', { class: 'muted small' }, n ? t('where.noteMany', { n, on: pct(b.onPct), min: whereMinLoss(n).toFixed(1) }) : t('where.note', { on: pct(b.onPct) })));
   }
 
   /** Trazado de la partida: fluidez del tracking, gráfica en el tiempo y exportación. */

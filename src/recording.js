@@ -19,6 +19,11 @@ const TURN = 2.5; // 1/s: "cambiando" si su velocidad cambia a más de 2,5 veces
 const MIN_ROW = 2; // s en una situación para mostrarla
 const MIN_OFF = 1; // s fuera del objetivo para decir por dónde se pierde
 const GROUPS = [['speed', ['slow', 'fast']], ['change', ['steady', 'turning']], ['dir', ['left', 'right', 'up', 'down']]];
+const BUCKETS = GROUPS.flatMap(([, keys]) => keys);
+const OFF = ['behind', 'ahead', 'side'];
+const cap = (k) => k[0].toUpperCase() + k.slice(1);
+/** Campos del historial con el desglose de una partida, en segundos (para sumar varias). */
+export const BREAKDOWN_FIELDS = ['wT', 'wOn', ...BUCKETS.flatMap((k) => [`w${cap(k)}T`, `w${cap(k)}On`]), ...OFF.map((k) => `wOff${cap(k)}`)];
 
 const wrap = (a) => a - 360 * Math.round(a / 360);
 const round = (digits) => (v) => (typeof v === 'number' ? Number(v.toFixed(digits)) : v);
@@ -105,7 +110,7 @@ function breakdownOf(f, seg, vx, vy, samples) {
   const n = f.t.length;
   const speeds = samples.map((s) => s.speed).sort((a, b) => a - b);
   const median = speeds[Math.floor(speeds.length / 2)];
-  const buckets = Object.fromEntries(GROUPS.flatMap(([, keys]) => keys).map((k) => [k, { time: 0, on: 0 }]));
+  const buckets = Object.fromEntries(BUCKETS.map((k) => [k, { time: 0, on: 0 }]));
   const off = { behind: 0, ahead: 0, side: 0 };
   let time = 0;
   let onTime = 0;
@@ -132,6 +137,15 @@ function breakdownOf(f, seg, vx, vy, samples) {
     if (!on) off[Math.abs(s.offSide) > Math.abs(s.offAhead) ? 'side' : s.offAhead > 0 ? 'ahead' : 'behind'] += dt;
   }
 
+  return summarize({ time, on: onTime, buckets, off });
+}
+
+/**
+ * Del tiempo acumulado por situación al desglose que se muestra.
+ * @param raw { time, on, buckets: { clave: { time, on } }, off: { behind, ahead, side } } en segundos
+ */
+function summarize(raw) {
+  const { buckets, off } = raw;
   const groups = [];
   for (const [id, keys] of GROUPS) {
     const shown = keys.filter((k) => buckets[k].time >= MIN_ROW);
@@ -149,8 +163,9 @@ function breakdownOf(f, seg, vx, vy, samples) {
   }
   const offTime = off.behind + off.ahead + off.side;
   return {
-    time,
-    onPct: (100 * onTime) / time,
+    raw,
+    time: raw.time,
+    onPct: (100 * raw.on) / raw.time,
     groups,
     off: offTime >= MIN_OFF ? {
       behindPct: (100 * off.behind) / offTime,
@@ -158,6 +173,36 @@ function breakdownOf(f, seg, vx, vy, samples) {
       sidePct: (100 * off.side) / offTime,
     } : null,
   };
+}
+
+/** Desglose de una partida en campos del historial (`BREAKDOWN_FIELDS`). */
+export function breakdownFields(b) {
+  if (!b) return {};
+  const r = (x) => Math.round(x * 100) / 100;
+  const out = { wT: r(b.raw.time), wOn: r(b.raw.on) };
+  for (const k of BUCKETS) {
+    out[`w${cap(k)}T`] = r(b.raw.buckets[k].time);
+    out[`w${cap(k)}On`] = r(b.raw.buckets[k].on);
+  }
+  for (const k of OFF) out[`wOff${cap(k)}`] = r(b.raw.off[k]);
+  return out;
+}
+
+/**
+ * Desglose de varias partidas del historial juntas (las que lo tengan guardado).
+ * @returns {{ breakdown, n }} o null si ninguna lo tiene
+ */
+export function breakdownOfEntries(entries) {
+  const runs = entries.filter((e) => BREAKDOWN_FIELDS.every((k) => Number.isFinite(e[k])));
+  if (!runs.length) return null;
+  const sum = (k) => runs.reduce((a, e) => a + e[k], 0);
+  const raw = {
+    time: sum('wT'),
+    on: sum('wOn'),
+    buckets: Object.fromEntries(BUCKETS.map((k) => [k, { time: sum(`w${cap(k)}T`), on: sum(`w${cap(k)}On`) }])),
+    off: Object.fromEntries(OFF.map((k) => [k, sum(`wOff${cap(k)}`)])),
+  };
+  return raw.time >= MIN_TIME ? { breakdown: summarize(raw), n: runs.length } : null;
 }
 
 /**

@@ -13,7 +13,7 @@ import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios/index.js';
 import { addEntry } from './history.js';
 import { AimAnalysis, analysisFields } from './analysis.js';
-import { Recording, analyzeRecording } from './recording.js';
+import { Recording, analyzeRecording, breakdownFields } from './recording.js';
 import { routineName } from './routines.js';
 import { t, setLanguage } from './i18n.js';
 
@@ -308,6 +308,7 @@ function finishSession() {
     const hipV = hipVFovDeg(s, camera.aspect);
     const hipDpc = hipDegPerCount(s);
     const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
+    const trace = analyzeRecording(recording);
     entries = addEntry(key, def, {
       t: time,
       score,
@@ -315,7 +316,9 @@ function finishSession() {
       cm360: cm360FromDegPerCount(hipDpc, s.dpi),
       adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
       fov: s.fov,
-      ...analysisFields(aim, analyzeRecording(recording)?.smooth),
+      ...analysisFields(aim, trace?.smooth),
+      // El desglose solo tiene sentido si la puntuación es el tiempo en objetivo
+      ...(def.score === 'percent' ? breakdownFields(trace?.breakdown) : {}),
     });
   }
   const rows = scenario.summary(stats);

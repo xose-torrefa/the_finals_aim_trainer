@@ -134,6 +134,7 @@ export default {
   'where.off.ahead': 'You mostly run ahead: you anticipate, or brake late when it slows down.',
   'where.off.side': 'You mostly drift off its path: the axis across its movement fails you more than keeping its pace.',
   'where.note': 'Rough guide: these are differences seen in this run ({on} on target while the target was moving), not causes, and only those above 2.5 points are highlighted because smaller ones flip from one run to the next. Slow and fast: below or above the median target speed in the run. Changing: its speed varies by more than half within 0.2 s. The points are how much the score would rise if that situation went like the others in its group.',
+  'where.noteMany': 'Sum of your latest runs with a saved breakdown ({n}): {on} on target while the target was moving. These are observed differences, not causes; those above {min} points are highlighted. Slow and fast: below or above the median target speed in each run. Changing: its speed varies by more than half within 0.2 s. The points are how much the score would rise if that situation went like the others in its group.',
   'card.trace': 'Run trace',
   'tr.mismatch': 'Speed mismatch',
   'tr.range': 'Crosshair speed (half of the time)',
