@@ -5,7 +5,8 @@ import { SCENARIOS, RANKED_BASE, fixedParts, scenarioName, scenarioDesc, groupNa
 import { getHistory, exportHistory, mergeHistory, compareToPrevious, trend, activity } from './history.js';
 import { BUILTIN_ROUTINES, MAX_STEPS, MAX_NAME, routineName, loadCustomRoutines, saveRoutine, deleteRoutine, mergeRoutines, newRoutineId } from './routines.js';
 import { analysisView, analysisTrendView } from './analysis.js';
-import { progressChart, sensChart, sensGroups } from './chart.js';
+import { analyzeRecording, exportRecording } from './recording.js';
+import { progressChart, sensChart, sensGroups, traceChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { encodeCrosshair, decodeCrosshair } from './crosshair-code.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
@@ -772,6 +773,7 @@ export class Menu {
         h('div', { class: 'actions' }, actions)),
       h('div', { class: 'tiles' }, r.rows.map(([k, v]) => tile(t(k), String(v)))),
       r.analysis && this.analysisCard(r.analysis),
+      r.recording && this.traceCard(r.recording),
       r.ranked && entries.length > 1 && card(t('card.progress'), progressChart(entries, fmt, def.formatTick, { width: 860, height: 220 })),
     ];
   }
@@ -981,6 +983,31 @@ export class Menu {
       h('div', { class: 'tiles' }, tiles.map(([k, v]) => tile(k, v))),
       tips.length > 0 && h('ul', { class: 'tips' }, tips.map((text) => h('li', {}, text))),
       h('p', { class: 'muted small' }, t('an.note')));
+  }
+
+  /** Trazado de la partida: fluidez del tracking, gráfica en el tiempo y exportación. */
+  traceCard(rec) {
+    const a = analyzeRecording(rec.data);
+    if (!a) return null;
+    const sm = a.smooth;
+    const pct = (x) => `${x.toFixed(0)}%`;
+    return card(t('card.trace'),
+      sm && h('div', { class: 'tiles' },
+        tile(t('tr.mismatch'), pct(sm.mismatchPct)),
+        tile(t('tr.stopped'), pct(sm.stoppedPct)),
+        tile(t('tr.stops'), sm.stopsPerSec.toFixed(1)),
+        tile(t('tr.burst'), pct(sm.burstPct))),
+      traceChart(a.series),
+      h('div', { class: 'actions' }, h('button', { onclick: () => this.exportTrace(rec) }, t('tr.export'))),
+      h('p', { class: 'muted small' }, t('tr.note')));
+  }
+
+  /** Descarga el trazado de la partida en JSON. */
+  exportTrace(rec) {
+    const stamp = new Date(rec.meta.t).toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(exportRecording(rec.data, rec.meta))], { type: 'application/json' }));
+    h('a', { href: url, download: `finals-aim-trace-${rec.meta.scenario}-${stamp}.json` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
   }
 
   /** Muestra el menú en una página (por defecto, la última abierta). */

@@ -84,6 +84,11 @@ No hay build, bundler, linter ni suite de tests. El navegador carga los módulos
 - Flicks: en el primer impacto a un objetivo con vida finita, analiza el recorrido de la mira desde el último impacto/kill o la aparición. El movimiento principal acaba cuando la velocidad cae al 20 % del pico; si ese punto está más allá del radio angular del objetivo es overshoot, y si no llega, undershoot.
 - Los objetivos exponen `aimInfo()` → `{ center, half, radius }` (centro, semialtura y radio en m).
 
+**`recording.js`: trazado de la partida**
+- `Recording` se crea por sesión y guarda por columnas, en cada fotograma de juego, la mira (`yaw`, `pitch`, counts `dx`/`dy`, ADS), el objetivo de referencia del análisis (`AimAnalysis.last`: dirección, error `ex`/`ey`, radio angular, `engaged`) y los disparos. Ángulos en grados. Solo se conserva el de la última partida, en memoria (`results.recording`); no va al historial ni a la copia de seguridad.
+- `analyzeRecording()` saca la fluidez del tracking (tarjeta "Trazado de la partida" de los resultados): compara la velocidad de la mira con la del objetivo, medidas sobre `WINDOW` (40 ms), mientras se sigue a un objetivo en movimiento. Desajuste = RMS de la diferencia en % de la velocidad del objetivo; parón = mira por debajo del 30 % (con histéresis); tirón = por encima del 170 %. Los umbrales son orientativos, sin calibrar con partidas reales. `cut()` marca la vuelta de una pausa para no medir a través de ella.
+- `traceChart` (`chart.js`) dibuja la velocidad horizontal de mira y objetivo y la mira respecto al objetivo, con ventana desplazable. "Exportar trazado" descarga el JSON de `exportRecording()` (`kind: 'trace'`, `version: 1`); si cambian las columnas, sube esa versión.
+
 **`routines.js`: rutinas**
 - Las predefinidas (`BUILTIN_ROUTINES`) tienen sus textos en i18n (`routine.<id>`, `routine.<id>.desc`). Las propias se guardan en `finals-aim.routines.v1` como `{ id: 'c…', name, steps }`, validadas con `sanitize()` (solo escenarios existentes, como mucho `MAX_STEPS`). Si se quita o se renombra un escenario, sus pasos desaparecen de las rutinas.
 
