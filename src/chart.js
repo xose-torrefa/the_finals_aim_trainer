@@ -1,5 +1,6 @@
 // Gráfica de progreso: una sola serie (puntuación por partida) en SVG, con
 // cruceta y tooltip. Colores y trazos vienen de clases en styles.css (CSP).
+import { h } from './dom.js';
 import { t, locale } from './i18n.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -241,4 +242,127 @@ export function sensChart(entries, field, format, tickFormat = (v) => String(v),
     tip.classList.add('hidden');
   });
   return wrap;
+}
+
+/** Cuantil `q` (0-1) de los valores finitos de `xs`, en valor absoluto. */
+function absQuantile(xs, q) {
+  const v = Array.from(xs).filter(Number.isFinite).map(Math.abs).sort((a, b) => a - b);
+  return v.length ? v[Math.min(v.length - 1, Math.floor(q * v.length))] : 0;
+}
+
+const TRACE_WINDOWS = [2, 5, 15, 0]; // s que se ven a la vez (0 = toda la partida)
+const TRACE_POINTS = 1500; // puntos por línea, como mucho
+
+/**
+ * Trazado de la partida en el tiempo: arriba, la velocidad horizontal de la
+ * mira frente a la del objetivo; abajo, la mira respecto al objetivo, con la
+ * banda en la que está encima. La ventana se elige y se desplaza con los controles.
+ * @param s { t, aim, target, err, radius } de `analyzeRecording`
+ */
+export function traceChart(s, { width: W = 860, height: H = 330 } = {}) {
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': t('tr.aria') });
+  const n = s.t.length;
+  const total = s.t[n - 1];
+  const plotW = W - PAD.l - PAD.r;
+  const top = { y0: 24, h: 130 };
+  const bottom = { y0: 190, h: 110 };
+
+  // Escalas fijas para toda la partida: al desplazarse no cambia el eje
+  const vMax = Math.max(10, absQuantile([...s.aim, ...s.target], 0.99));
+  const eMax = Math.max(1, absQuantile(s.err, 0.95));
+  const vTicks = niceTicks(-vMax, vMax);
+  const eTicks = niceTicks(-eMax, eMax);
+  const scale = (panel, ticks) => {
+    const lo = ticks[0];
+    const hi = ticks.at(-1);
+    const y = (v) => panel.y0 + panel.h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * panel.h;
+    for (const tick of ticks) {
+      root.append(svg('line', { class: tick === 0 ? 'grid zero' : 'grid', x1: PAD.l, x2: W - PAD.r, y1: y(tick), y2: y(tick) }));
+      const label = svg('text', { class: 'tick', x: PAD.l - 6, y: y(tick), 'text-anchor': 'end', 'dominant-baseline': 'middle' });
+      label.textContent = String(tick);
+      root.append(label);
+    }
+    return y;
+  };
+  const text = (cls, x, y, anchor, content) => {
+    const el = svg('text', { class: cls, x, y, 'text-anchor': anchor });
+    el.textContent = content;
+    root.append(el);
+    return el;
+  };
+  const yV = scale(top, vTicks);
+  const yE = scale(bottom, eTicks);
+  text('tick', PAD.l, top.y0 - 10, 'start', t('tr.speed'));
+  text('tick', PAD.l, bottom.y0 - 10, 'start', t('tr.error'));
+  text('legend aim', W - PAD.r, top.y0 - 10, 'end', t('tr.aim'));
+  text('legend ref', W - PAD.r - 70, top.y0 - 10, 'end', t('tr.target'));
+  const from = text('tick', PAD.l, H - 6, 'start', '');
+  const to = text('tick', W - PAD.r, H - 6, 'end', '');
+
+  const band = svg('path', { class: 'band' });
+  const refLine = svg('path', { class: 'line ref' });
+  const aimLine = svg('path', { class: 'line thin' });
+  const errLine = svg('path', { class: 'line thin' });
+  root.append(band, refLine, aimLine, errLine);
+
+  let span = 5;
+  let start = 0;
+  const draw = () => {
+    const len = span > 0 ? Math.min(span, total) : total;
+    const t0 = Math.max(0, Math.min(start, total - len));
+    const x = (time) => PAD.l + ((time - t0) / len) * plotW;
+    let i0 = 0;
+    while (i0 < n - 1 && s.t[i0] < t0) i0++;
+    let i1 = i0;
+    while (i1 < n - 1 && s.t[i1 + 1] <= t0 + len) i1++;
+    const step = Math.max(1, Math.ceil((i1 - i0 + 1) / TRACE_POINTS));
+    // Tramos seguidos con dato; los huecos (sin objetivo, cambio de objetivo) cortan la línea
+    const runs = (vals) => {
+      const out = [];
+      let run = null;
+      for (let i = i0; i <= i1; i += step) {
+        if (Number.isFinite(vals[i])) {
+          if (!run) out.push(run = []);
+          run.push(i);
+        } else {
+          run = null;
+        }
+      }
+      return out;
+    };
+    const pts = (run, y, value) => run.map((i) => `${x(s.t[i]).toFixed(1)},${y(value(i)).toFixed(1)}`).join('L');
+    const line = (vals, y) => runs(vals).map((run) => `M${pts(run, y, (i) => vals[i])}`).join('');
+    refLine.setAttribute('d', line(s.target, yV));
+    aimLine.setAttribute('d', line(s.aim, yV));
+    errLine.setAttribute('d', line(s.err, yE));
+    band.setAttribute('d', runs(s.radius)
+      .map((run) => `M${pts(run, yE, (i) => s.radius[i])}L${pts([...run].reverse(), yE, (i) => -s.radius[i])}Z`)
+      .join(''));
+    from.textContent = `${t0.toFixed(1)} s`;
+    to.textContent = `${(t0 + len).toFixed(1)} s`;
+  };
+
+  const slider = h('input', { type: 'range', min: 0, step: 0.05, value: 0, ariaLabel: t('tr.scroll') });
+  const setRange = () => {
+    const max = span > 0 ? Math.max(0, total - span) : 0;
+    slider.max = max;
+    slider.disabled = max === 0;
+    start = Math.min(start, max);
+    slider.value = start;
+  };
+  slider.addEventListener('input', () => {
+    start = Number(slider.value);
+    draw();
+  });
+  const select = h('select', {
+    ariaLabel: t('tr.window'),
+    onchange: () => {
+      span = Number(select.value);
+      setRange();
+      draw();
+    },
+  }, TRACE_WINDOWS.map((w) => h('option', { value: w, selected: w === span }, w ? t('tr.windowValue', { n: w }) : t('tr.windowAll'))));
+  setRange();
+  draw();
+  return h('div', { class: 'chart trace' }, root, h('div', { class: 'trace-controls' }, select, slider));
 }

@@ -13,6 +13,7 @@ import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios/index.js';
 import { addEntry } from './history.js';
 import { AimAnalysis, analysisFields } from './analysis.js';
+import { Recording } from './recording.js';
 import { routineName } from './routines.js';
 import { t, setLanguage } from './i18n.js';
 
@@ -158,7 +159,7 @@ function startSession(key, ranked) {
   const stats = createStats();
   const s = scenarioSettings(settings, key, ranked);
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
-  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player) };
+  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player), recording: new Recording() };
   session.scenario = session.def.create(ctx);
   syncCamera(); // el escenario puede mover al jugador (p. ej. a un tejado)
   viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight, ctx.weapon.level);
@@ -227,6 +228,7 @@ function quitSession() {
 
 function beginCountdown() {
   countdownLeft = settings.countdown;
+  session.recording.cut();
   input.takeFirePress();
   menu.hide();
   menu.setPaused(null);
@@ -295,7 +297,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 function finishSession() {
-  const { def, scenario, stats, ctx, key, ranked, analysis } = session;
+  const { def, scenario, stats, ctx, key, ranked, analysis, recording } = session;
   const score = scenario.score(stats);
   const aim = analysis.result();
   const time = Date.now();
@@ -325,7 +327,12 @@ function finishSession() {
     routine.results[routine.index] = { key, t: time, score };
     progress = { def: routine.def, index: routine.index, results: [...routine.results] };
   }
-  const results = { key, ranked, t: time, weapon: ctx.weapon.key, score, rows, analysis: aim, routine: progress };
+  // Trazado de la partida, con lo necesario para interpretarlo fuera
+  const meta = {
+    scenario: key, scenarioVersion: def.version, ranked, t: time, weapon: ctx.weapon.key, score,
+    duration: stats.time, dpi: ctx.settings.dpi, fov: ctx.settings.fov, hipDegPerCount: hipDegPerCount(ctx.settings),
+  };
+  const results = { key, ranked, t: time, weapon: ctx.weapon.key, score, rows, analysis: aim, recording: { meta, data: recording }, routine: progress };
   if (settings.quickResults && input.locked) {
     // Resultado rápido: el ratón sigue capturado para repetir al momento
     state = 'finished';
@@ -390,6 +397,7 @@ function shoot(w) {
   sfx.shot();
   viewmodel.fire();
   const hit = castRay(rayDir);
+  session.recording.shot(stats.time, !hit?.target ? 0 : hit.part === 'head' ? 2 : 1);
   if (session.ctx.settings.tracers) {
     // Sale de donde se ve la boca del cañón y va al punto de impacto
     viewmodel.muzzleNdc(tracerFrom).setZ(0.5).unproject(camera).sub(camera.position).normalize();
@@ -514,6 +522,7 @@ function update(dt) {
   const aimed = castRay(rayDir)?.target ?? null;
   if (aimed && (moving || !scenario.requireMove)) stats.onTargetTime += dt;
   session.analysis.frame(dt, stats.time, scenario.targets, aimed);
+  session.recording.frame(stats.time, player, dx, dy, e, session.analysis.last, session.analysis.engaged, Boolean(aimed));
 
   session.timeLeft -= dt;
   hud.update(dt, {

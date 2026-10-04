@@ -423,7 +423,7 @@ table.history.compact td, table.history.compact th { padding: 5px 4px; }
 .fields .field.hidden + .field { border-top: 1px solid var(--line); }
 .field-label { display: grid; gap: 2px; }
 .field-label small { color: var(--muted); font-size: 12px; }
-.field input[type='number'], .field input.text, .field select, .actions select {
+.field input[type='number'], .field input.text, .field select, .actions select, .trace-controls select {
   width: 190px;
   flex-shrink: 0;
   font: inherit;
@@ -433,7 +433,7 @@ table.history.compact td, table.history.compact th { padding: 5px 4px; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
-.field input:focus, .field select:focus, .actions select:focus { outline: none; border-color: var(--accent); }
+.field input:focus, .field select:focus, .actions select:focus, .trace-controls select:focus { outline: none; border-color: var(--accent); }
 .field input[type='checkbox'] { accent-color: var(--accent); width: 20px; height: 20px; flex-shrink: 0; }
 .field input[type='color'] { width: 64px; height: 32px; border: none; background: none; padding: 0; flex-shrink: 0; }
 button.keybind {
@@ -559,6 +559,16 @@ button.keybind.capturing { border-color: var(--accent); color: var(--accent); }
 .chart .dot.run { stroke: none; }
 .chart .mean { stroke: var(--accent-2); stroke-width: 3; stroke-linecap: round; }
 .chart .cross { stroke: var(--muted); stroke-width: 1; }
+.chart .grid.zero { stroke: var(--muted); }
+.chart .line.thin { stroke-width: 1.5; }
+.chart .line.ref { stroke: var(--text); stroke-width: 1.5; opacity: 0.55; }
+.chart .band { fill: var(--good); opacity: 0.14; }
+.chart .legend { font-size: 11px; font-weight: 600; }
+.chart .legend.aim { fill: var(--accent); }
+.chart .legend.ref { fill: var(--text); opacity: 0.7; }
+.trace-controls { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.trace-controls select { width: 160px; flex: none; }
+.trace-controls input { flex: 1; accent-color: var(--accent); }
 .chart .hit { fill: transparent; cursor: crosshair; }
 .chart-tip {
   position: absolute;

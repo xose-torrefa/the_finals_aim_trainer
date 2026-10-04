@@ -47,6 +47,7 @@ export class AimAnalysis {
     this.prev = null; // su dirección en el frame anterior
     this.refDir = null; // su dirección de movimiento en pantalla (unitaria)
     this.engaged = false;
+    this.last = null; // referencia de este frame { target, c, ex, ey, err, radius } (para el trazado)
     this.reversalUntil = -Infinity;
     this.steady = { time: 0, on: 0, lag: 0, speed: 0, behind: 0, ahead: 0 };
     this.reversal = { time: 0, on: 0 };
@@ -84,6 +85,7 @@ export class AimAnalysis {
    * @param aimed objetivo bajo la mira (o null)
    */
   frame(dt, now, targets, aimed) {
+    this.last = null;
     if (dt <= 0) return;
     const p = this.player;
 
@@ -102,6 +104,7 @@ export class AimAnalysis {
       if (!best || err < best.err) best = { target, c, ex, ey, err, radius: Math.atan(radius / c.dist) / DEG };
     }
     if (!best) return;
+    this.last = best;
     if (best.target !== this.ref) {
       this.ref = best.target;
       this.prev = null;
