@@ -1,7 +1,8 @@
 // Trazado de una partida: la mira y el objetivo de referencia en cada fotograma.
 // Solo se conserva el de la última partida (en memoria) y se puede exportar a
 // JSON para analizarlo fuera. De él sale también la fluidez del tracking: si la
-// mira lleva la velocidad del objetivo o avanza a trompicones (parones y tirones).
+// mira lleva la velocidad del objetivo o va a trompicones, acelerando y frenando
+// alrededor de ella.
 // Los ángulos van en grados.
 import { DEG } from './settings.js';
 
@@ -9,9 +10,8 @@ const COLS = ['t', 'yaw', 'pitch', 'dx', 'dy', 'ads', 'on', 'target', 'tyaw', 't
 const WINDOW = 0.04; // s sobre los que se mide la velocidad (un fotograma suelto son 1-2 counts del ratón)
 const MIN_SPEED = 8; // °/s del objetivo: por debajo no se compara la velocidad
 const MAX_JUMP = 5; // ° en un fotograma: el objetivo ha reaparecido en otro sitio
-const STOP_IN = 0.3; // parón: la mira baja del 30 % de la velocidad del objetivo…
-const STOP_OUT = 0.6; // …y acaba cuando vuelve a pasar del 60 %
-const BURST = 1.7; // tirón: la mira va a más del 170 %
+const SWING = 0.15; // vaivén: la mira pasa de ir un 15 % más lenta que el objetivo a un 15 % más rápida (o al revés)
+const CENTER = 0.15; // cruce: la mira pasa de un lado del centro al otro (margen en radios del objetivo)
 const MIN_TIME = 3; // s de tracking necesarios para dar resultados
 
 const wrap = (a) => a - 360 * Math.round(a / 360);
@@ -127,17 +127,19 @@ export function analyzeRecording(rec) {
   let time = 0;
   let speedSum = 0;
   let sq = 0;
-  let stopTime = 0;
-  let burstTime = 0;
-  let stops = 0;
-  let stopped = false;
+  const ratios = [];
+  let swings = 0; // cambios entre "más lenta" y "más rápida" que el objetivo
+  let pace = 0; // -1 = más lenta, 1 = más rápida
+  let crossings = 0; // pasos de detrás a delante del centro del objetivo (o al revés)
+  let side = 0; // -1 = por detrás, 1 = por delante
   const half = WINDOW / 2;
   for (let i = 0, j1 = 0, j2 = 0; i < n; i++) {
     while (f.t[j1] < f.t[i] - half) j1++;
     while (j2 + 1 < n && f.t[j2 + 1] <= f.t[i] + half) j2++;
     const span = f.t[j2] - f.t[j1];
     if (f.target[i] < 0 || seg[j1] !== seg[j2] || span < half) {
-      stopped = false;
+      pace = 0;
+      side = 0;
       continue;
     }
     const vax = (ax[j2] - ax[j1]) / span;
@@ -148,7 +150,8 @@ export function analyzeRecording(rec) {
     target[i] = vbx;
     const speed = Math.hypot(vbx, vby);
     if (!f.engaged[i] || speed < MIN_SPEED || i === 0) {
-      stopped = false;
+      pace = 0;
+      side = 0;
       continue;
     }
     // Velocidad de la mira en la dirección en que se mueve el objetivo, y su proporción
@@ -158,22 +161,32 @@ export function analyzeRecording(rec) {
     time += dt;
     speedSum += speed * dt;
     sq += (along - speed) ** 2 * dt;
-    if (!stopped && ratio < STOP_IN) {
-      stopped = true;
-      stops++;
-    } else if (stopped && ratio > STOP_OUT) {
-      stopped = false;
+    ratios.push(ratio);
+    const nowPace = ratio > 1 + SWING ? 1 : ratio < 1 - SWING ? -1 : 0;
+    if (nowPace) {
+      if (pace && nowPace !== pace) swings++;
+      pace = nowPace;
     }
-    if (stopped) stopTime += dt;
-    if (ratio > BURST) burstTime += dt;
+    // Mira respecto al centro del objetivo, en la dirección en que se mueve (> 0 = por delante)
+    const ahead = (f.ex[i] * vbx + (f.pitch[i] - f.tpitch[i]) * vby) / speed;
+    const margin = CENTER * f.radius[i];
+    const nowSide = ahead > margin ? 1 : ahead < -margin ? -1 : 0;
+    if (nowSide) {
+      if (side && nowSide !== side) crossings++;
+      side = nowSide;
+    }
   }
 
+  ratios.sort((a, b) => a - b);
+  const quartile = (q) => 100 * ratios[Math.floor(q * (ratios.length - 1))];
   const smooth = time >= MIN_TIME ? {
     time,
     mismatchPct: (100 * Math.sqrt(sq / time)) / (speedSum / time),
-    stoppedPct: (100 * stopTime) / time,
-    burstPct: (100 * burstTime) / time,
-    stopsPerSec: stops / time,
+    // La mitad del tiempo la mira va entre estos dos % de la velocidad del objetivo
+    slowPct: quartile(0.25),
+    fastPct: quartile(0.75),
+    swingsPerSec: swings / 2 / time, // un vaivén = acelerar y volver a frenar
+    crossingsPerSec: crossings / time,
   } : null;
   return { smooth, series: { t: f.t, aim, target, err: f.ex, radius: f.radius } };
 }

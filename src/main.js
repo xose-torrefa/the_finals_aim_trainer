@@ -13,7 +13,7 @@ import { Tracers } from './tracers.js';
 import { SCENARIOS, createStats, scenarioSettings, scenarioName, groupName } from './scenarios/index.js';
 import { addEntry } from './history.js';
 import { AimAnalysis, analysisFields } from './analysis.js';
-import { Recording } from './recording.js';
+import { Recording, analyzeRecording } from './recording.js';
 import { routineName } from './routines.js';
 import { t, setLanguage } from './i18n.js';
 
@@ -315,7 +315,7 @@ function finishSession() {
       cm360: cm360FromDegPerCount(hipDpc, s.dpi),
       adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
       fov: s.fov,
-      ...analysisFields(aim),
+      ...analysisFields(aim, analyzeRecording(recording)?.smooth),
     });
   }
   const rows = scenario.summary(stats);

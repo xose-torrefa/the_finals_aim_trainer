@@ -281,13 +281,17 @@ export function analysisView(a) {
   return { tiles, tips };
 }
 
-/** Métricas del análisis que se guardan en el historial (solo las que tienen datos). */
-export function analysisFields(a) {
+/**
+ * Métricas del análisis que se guardan en el historial (solo las que tienen datos).
+ * @param smooth fluidez del tracking (`analyzeRecording().smooth`) o null
+ */
+export function analysisFields(a, smooth) {
   const out = {};
   const put = (k, v) => {
     if (Number.isFinite(v)) out[k] = Math.round(v * 10) / 10;
   };
   put('lagMs', a?.tracking?.lagMs);
+  put('mismatchPct', smooth?.mismatchPct);
   put('reversalOnPct', a?.tracking?.reversalOnPct);
   put('overPct', a?.flicks?.overPct);
   put('underPct', a?.flicks?.underPct);
@@ -306,6 +310,7 @@ const msText = (x) => `${Math.round(x)} ms`;
 // cuánto tiene que cambiar para contar como mejora o empeoramiento
 const TREND_METRICS = [
   { key: 'lagMs', label: 'an.lag', format: lagText, cost: Math.abs, margin: 5 },
+  { key: 'mismatchPct', label: 'an.mismatch', format: pct, cost: (x) => x, margin: 3 },
   { key: 'reversalOnPct', label: 'an.reversalTrend', format: pct, cost: (x) => -x, margin: 3 },
   { key: 'overPct', label: 'an.over', format: pct, cost: (x) => x, margin: 3 },
   { key: 'underPct', label: 'an.under', format: pct, cost: (x) => x, margin: 3 },
