@@ -15,6 +15,7 @@ import { addEntry } from './history.js';
 import { AimAnalysis, analysisFields } from './analysis.js';
 import { Recording, analyzeRecording, breakdownFields } from './recording.js';
 import { routineName } from './routines.js';
+import { createSensTest, sensValues, TEST_DURATION } from './senstest.js';
 import { t, setLanguage } from './i18n.js';
 
 const EYE_HEIGHT = 1.7;
@@ -62,6 +63,8 @@ let session = null;
 let finished = null; // resultados de la partida mientras se ve el resultado rápido
 let lastPlayed = null; // { key, ranked } de la última partida, para reiniciar desde los resultados
 // Rutina en curso: { def, index, results: [{ key, t, score }] }. Se abandona al jugar otra cosa o salir.
+// El test de sensibilidad es una rutina con `test` (ver senstest.js): el mismo escenario
+// en cada paso, con la sensibilidad de ese paso impuesta sobre los ajustes.
 let routine = null;
 let countdownLeft = 0;
 let adsT = 0;
@@ -76,6 +79,7 @@ const menu = new Menu(document.getElementById('menu'), settings, {
     startSession(key, ranked);
   },
   onPlayRoutine: startRoutine,
+  onSensTest: startSensTest,
   onRoutineNext: nextRoutineStep,
   onResume: requestLock,
   onRestart: restartSession,
@@ -137,7 +141,7 @@ function setBackground() {
 function applyToSession() {
   if (!session) return;
   // Los ajustes personales (sens, FOV…) se aplican al momento; el modo no cambia a mitad de partida
-  session.ctx.settings = scenarioSettings(settings, session.key, session.ranked);
+  session.ctx.settings = { ...scenarioSettings(settings, session.key, session.ranked), ...session.opts.overrides };
   session.ctx.weapon = resolveWeapon(session.ctx.settings);
   viewmodel.setWeapon(session.ctx.weapon.key, session.ctx.weapon.sight, session.ctx.weapon.level);
 }
@@ -148,8 +152,9 @@ function applyToSession() {
  * Prepara una partida. Si el ratón ya está capturado (reinicio en plena
  * partida) arranca la cuenta atrás; si no, espera al clic del jugador.
  * @param ranked true = modo Escenarios (configuración fija y registro)
+ * @param opts   { overrides (ajustes impuestos), noAds (sin ADS), unsaved (no va al historial) }
  */
-function startSession(key, ranked) {
+function startSession(key, ranked, opts = {}) {
   sfx.unlock();
   endScenario();
   player.pos.set(0, EYE_HEIGHT, 0);
@@ -157,14 +162,14 @@ function startSession(key, ranked) {
   player.pitch = 0;
 
   const stats = createStats();
-  const s = scenarioSettings(settings, key, ranked);
+  const s = { ...scenarioSettings(settings, key, ranked), ...opts.overrides };
   const ctx = { scene, camera, player, settings: s, weapon: resolveWeapon(s), stats };
-  session = { key, def: SCENARIOS[key], ranked, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player), recording: new Recording() };
+  session = { key, def: SCENARIOS[key], ranked, opts, scenario: null, ctx, stats, timeLeft: s.duration, analysis: new AimAnalysis(player), recording: new Recording() };
   session.scenario = session.def.create(ctx);
   syncCamera(); // el escenario puede mover al jugador (p. ej. a un tejado)
   viewmodel.setWeapon(ctx.weapon.key, ctx.weapon.sight, ctx.weapon.level);
   viewmodel.reset();
-  lastPlayed = { key, ranked };
+  lastPlayed = { key, ranked, opts };
   finished = null;
   adsT = 0;
   shotTimer = 0;
@@ -187,17 +192,34 @@ function startSession(key, ranked) {
 /** Empieza una rutina: sus escenarios en modo Escenarios, uno tras otro. */
 function startRoutine(def) {
   routine = { def, index: 0, results: [] };
-  startSession(def.steps[0], true);
+  startRoutineStep();
+}
+
+/** Empieza un test de sensibilidad ('ads' | 'hip') con el escenario `key`. */
+function startSensTest(kind, key) {
+  const test = createSensTest(kind, key, settings);
+  routine = { def: { id: 'senstest', name: t(`senstest.name.${kind}`), steps: test.factors.map(() => key) }, index: 0, results: [], test };
+  startRoutineStep();
+}
+
+function startRoutineStep() {
+  const { def, index, test } = routine;
+  // En el test, cada paso impone su sensibilidad y una duración más corta, así
+  // que no se guarda en el historial; el de hipfire se juega sin ADS
+  const opts = test
+    ? { overrides: { ...sensValues(test, test.factors[index]), duration: TEST_DURATION }, noAds: test.kind === 'hip', unsaved: true }
+    : {};
+  startSession(def.steps[index], true, opts);
 }
 
 function nextRoutineStep() {
   if (!routineHasNext()) return;
   routine.index++;
-  startSession(routine.def.steps[routine.index], true);
+  startRoutineStep();
 }
 
 function restartSession() {
-  if (lastPlayed) startSession(lastPlayed.key, lastPlayed.ranked);
+  if (lastPlayed) startSession(lastPlayed.key, lastPlayed.ranked, lastPlayed.opts);
 }
 
 function endScenario() {
@@ -220,8 +242,9 @@ function quitSession() {
   hud.hide();
   menu.setPaused(null);
   if (routine) {
+    const page = routine.test ? 'settings' : 'routines';
     routine = null;
-    menu.show('routines');
+    menu.show(page);
   } else if (from?.ranked) menu.show('scenario', from.key);
   else menu.show(from ? 'sandbox' : undefined);
 }
@@ -283,10 +306,16 @@ document.addEventListener('keydown', (e) => {
   } else if (e.code === 'Escape' && input.locked) {
     // Con la Keyboard Lock (pantalla completa del botón) el navegador no suelta el ratón con Esc
     input.unlock();
-  } else if (e.code === 'Enter' && state === 'finished' && settings.restartKey !== 'Enter') {
+  } else if ((e.code === 'Space' || e.code === 'Enter') && state === 'finished' && settings.restartKey !== e.code) {
+    // Espacio queda a mano con los dedos en WASD; Enter sigue valiendo
     e.preventDefault();
-    if (routineHasNext()) nextRoutineStep();
-    else openResults();
+    if (routineHasNext()) {
+      nextRoutineStep();
+    } else {
+      const test = routine?.test;
+      openResults();
+      if (test) menu.navigate('sens-summary'); // el test acaba en su resultado, no en el de la última partida
+    }
   } else if (e.code === settings.restartKey) {
     const inGame = ['ready', 'countdown', 'playing', 'paused', 'finished'].includes(state);
     if (inGame || (state === 'results' && menu.page === 'results')) {
@@ -302,19 +331,21 @@ function finishSession() {
   const aim = analysis.result();
   const time = Date.now();
   let entries = [];
-  if (ranked) {
-    const s = ctx.settings;
-    const w = ctx.weapon;
-    const hipV = hipVFovDeg(s, camera.aspect);
-    const hipDpc = hipDegPerCount(s);
-    const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
-    const trace = analyzeRecording(recording);
+  const s = ctx.settings;
+  const w = ctx.weapon;
+  const hipV = hipVFovDeg(s, camera.aspect);
+  const hipDpc = hipDegPerCount(s);
+  const adsDpc = hipDpc * sensFactor(s, 1, adsVFovDeg(hipV, w.fovMult), hipV, w.sniper);
+  const cm360 = cm360FromDegPerCount(hipDpc, s.dpi);
+  const adsCm360 = cm360FromDegPerCount(adsDpc, s.dpi);
+  const trace = analyzeRecording(recording);
+  if (ranked && !session.opts.unsaved) {
     entries = addEntry(key, def, {
       t: time,
       score,
       accuracy: stats.shots > 0 ? (100 * stats.hits) / stats.shots : null,
-      cm360: cm360FromDegPerCount(hipDpc, s.dpi),
-      adsCm360: cm360FromDegPerCount(adsDpc, s.dpi),
+      cm360,
+      adsCm360,
       fov: s.fov,
       ...analysisFields(aim, trace?.smooth),
       // El desglose solo tiene sentido si la puntuación es el tiempo en objetivo
@@ -322,34 +353,53 @@ function finishSession() {
     });
   }
   const rows = scenario.summary(stats);
+  const unsaved = Boolean(session.opts.unsaved);
   hud.hide();
   endScenario();
   let progress = null;
   if (routine) {
     // Si se repite un paso, cuenta la última partida
     routine.results[routine.index] = { key, t: time, score };
-    progress = { def: routine.def, index: routine.index, results: [...routine.results] };
+    const { test } = routine;
+    if (test) {
+      const ads = recording.frames.ads;
+      Object.assign(routine.results[routine.index], {
+        factor: test.factors[routine.index],
+        mismatchPct: trace?.smooth?.mismatchPct ?? null,
+        adsShare: ads.length ? ads.reduce((a, b) => a + b, 0) / ads.length : 0,
+        cm: test.kind === 'ads' ? adsCm360 : cm360,
+      });
+    }
+    progress = { def: routine.def, index: routine.index, results: [...routine.results], test };
   }
   // Trazado de la partida, con lo necesario para interpretarlo fuera
   const meta = {
     scenario: key, scenarioVersion: def.version, ranked, t: time, weapon: ctx.weapon.key, score,
     duration: stats.time, dpi: ctx.settings.dpi, fov: ctx.settings.fov, hipDegPerCount: hipDegPerCount(ctx.settings),
   };
-  const results = { key, ranked, t: time, weapon: ctx.weapon.key, score, rows, analysis: aim, recording: { meta, data: recording }, routine: progress };
+  const results = { key, ranked, t: time, weapon: ctx.weapon.key, score, rows, analysis: aim, recording: { meta, data: recording }, routine: progress, unsaved };
   if (settings.quickResults && input.locked) {
     // Resultado rápido: el ratón sigue capturado para repetir al momento
     state = 'finished';
     finished = results;
-    const next = routineHasNext() ? routine.def.steps[routine.index + 1] : null;
+    // Lo siguiente con Espacio va destacado: en una rutina o un test, lo normal es seguir
+    const again = { key: keyLabel(settings.restartKey) };
+    let next = null;
+    if (routine?.test) {
+      next = routineHasNext()
+        ? t('finished.nextRun', { step: routine.index + 2, total: routine.def.steps.length })
+        : t('finished.testDone');
+    } else if (routineHasNext()) {
+      next = t('finished.next', { name: scenarioName(routine.def.steps[routine.index + 1]) });
+    }
     overlay.showFinished({
       eyebrow: menu.resultsEyebrow(results),
       name: scenarioName(key),
       score: SCENARIOS[key].formatScore(score),
       badges: menu.resultBadges(results, entries),
       rows,
-      keys: next
-        ? t('finished.keysNext', { key: keyLabel(settings.restartKey), name: scenarioName(next) })
-        : t('finished.keys', { key: keyLabel(settings.restartKey) }),
+      next,
+      keys: t(next ? 'finished.keysNext' : 'finished.keys', again),
     });
   } else {
     finished = results;
@@ -431,7 +481,7 @@ function update(dt) {
 
   // ADS: progreso lineal en el tiempo del arma; el FOV usa una curva suave
   const rate = w.adsTime > 0 ? dt / w.adsTime : 1;
-  adsT = input.ads ? Math.min(1, adsT + rate) : Math.max(0, adsT - rate);
+  adsT = input.ads && !session.opts.noAds ? Math.min(1, adsT + rate) : Math.max(0, adsT - rate);
   const e = smoothstep(adsT);
   const s = session.ctx.settings;
   const hipV = hipVFovDeg(s, camera.aspect);
