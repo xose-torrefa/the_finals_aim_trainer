@@ -78,14 +78,16 @@ export class Overlay {
    * Resultado rápido al acabar: se ve sobre la escena con el ratón aún capturado.
    * Las teclas las gestiona main.js (no hay botones: no se puede hacer clic).
    * @param rows pares [clave de texto, valor] del resumen del escenario
+   * @param next texto destacado con lo que hace Espacio (siguiente paso de una rutina o test), o null
    */
-  showFinished({ eyebrow, name, score, badges, rows, keys }) {
+  showFinished({ eyebrow, name, score, badges, rows, next, keys }) {
     this.show('finished', h('div', { class: 'ov-card finished-card' },
       h('span', { class: 'eyebrow' }, eyebrow),
       h('h1', {}, name),
       h('strong', { class: 'ov-score' }, score),
       badges,
       h('dl', { class: 'ov-rows' }, rows.flatMap(([k, v]) => [h('dt', {}, t(k)), h('dd', {}, String(v))])),
+      next && h('p', { class: 'next-key' }, next),
       h('p', { class: 'keys' }, keys)));
   }
 

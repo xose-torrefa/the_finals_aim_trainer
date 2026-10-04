@@ -10,6 +10,7 @@ import { progressChart, sensChart, sensGroups, traceChart } from './chart.js';
 import { Crosshair, crosshairProfile, adsCrosshairProfile } from './crosshair.js';
 import { encodeCrosshair, decodeCrosshair } from './crosshair-code.js';
 import { parseFinalsSave, settingsFromFinalsSave, SAVE_PATH } from './finals-save.js';
+import { analyzeSensTest, sensSettings, TEST_DURATION, MIN_RUNS } from './senstest.js';
 import { t, hasText, locale, LANGUAGES } from './i18n.js';
 import { canFullscreen, isFullscreen, toggleFullscreen, onFullscreenChange } from './display.js';
 
@@ -29,7 +30,10 @@ const NAV = ['scenarios', 'routines', 'sandbox', 'settings'];
 const SENS_FIELDS = ['cm360', 'adsCm360'];
 const SENS_MIN_RUNS = 3;
 // Páginas que cuelgan de una sección de la barra lateral
-const SECTION_OF = { scenario: 'scenarios', 'routine-edit': 'routines', 'routine-summary': 'routines' };
+const SECTION_OF = { scenario: 'scenarios', 'routine-edit': 'routines', 'routine-summary': 'routines', 'sens-summary': 'settings' };
+const SENS_TAB = 'sensitivity';
+// Escenarios para el test de sensibilidad: los que puntúan el tiempo en objetivo
+const SENS_TEST_SCENARIOS = Object.keys(SCENARIOS).filter((k) => SCENARIOS[k].score === 'percent');
 
 const GROUPS = Map.groupBy(Object.entries(SCENARIOS), ([, sc]) => sc.group);
 
@@ -79,7 +83,7 @@ function dropZone(box, onFile) {
 
 export class Menu {
   /**
-   * @param handlers { onPlay(key, ranked), onPlayRoutine(def), onRoutineNext(), onResume(), onRestart(),
+   * @param handlers { onPlay(key, ranked), onPlayRoutine(def), onSensTest(kind, key), onRoutineNext(), onResume(), onRestart(),
    *   onQuit(), onChange(key), onReplace() (tras sustituir todos los ajustes), onSound(kind) }
    */
   constructor(root, settings, handlers) {
@@ -93,6 +97,7 @@ export class Menu {
     this.draft = null; // rutina que se está editando: { id, name, steps }
     this.paused = null;
     this.sensField = SENS_FIELDS[0];
+    this.sensTestKey = 'widetrack';
     this.fieldRows = [];
     this.buildShell();
     this.render();
@@ -147,7 +152,7 @@ export class Menu {
     this.content.scrollTop = scroll;
   }
 
-  /** @param page 'scenarios' | 'scenario' | 'routines' | 'routine-edit' | 'routine-summary' | 'sandbox' | 'settings' | 'results' */
+  /** @param page 'scenarios' | 'scenario' | 'routines' | 'routine-edit' | 'routine-summary' | 'sandbox' | 'settings' | 'sens-summary' | 'results' */
   navigate(page, key = null) {
     this.page = page;
     if (page === 'scenario') this.detailKey = key;
@@ -170,6 +175,7 @@ export class Menu {
       'routine-summary': () => this.renderRoutineSummary(),
       sandbox: () => this.renderSandbox(),
       settings: () => this.renderSettings(),
+      'sens-summary': () => this.renderSensSummary(),
       results: () => this.renderResults(),
     };
     this.content.replaceChildren(h('div', { class: 'page' }, pages[this.page]()));
@@ -393,7 +399,7 @@ export class Menu {
     const tabs = [...new Set(SETTINGS_SCHEMA.filter((g) => g.page === 'settings').map(tabOf)), IMPORT_TAB, BACKUP_TAB];
     const active = tabs.includes(this.settingsTab) ? this.settingsTab : tabs[0];
     const custom = { [IMPORT_TAB]: () => this.buildImport(), [BACKUP_TAB]: () => this.buildBackup() };
-    const body = custom[active] ? custom[active]() : this.schemaCards('settings', active);
+    const body = custom[active] ? custom[active]() : [this.schemaCards('settings', active), active === SENS_TAB && this.sensTestCard()];
     return [
       h('header', { class: 'page-head' },
         h('h1', {}, t('nav.settings')),
@@ -757,7 +763,14 @@ export class Menu {
 
     let actions;
     const p = r.routine;
-    if (p) {
+    if (p?.test) {
+      const total = p.def.steps.length;
+      actions = p.index + 1 < total
+        ? [h('button', { class: 'primary big', onclick: () => this.handlers.onRoutineNext() }, t('senstest.next', { step: p.index + 2, total })),
+          retry(false),
+          h('button', { onclick: () => this.navigate('sens-summary') }, t('senstest.leave'))]
+        : [h('button', { class: 'primary big', onclick: () => this.navigate('sens-summary') }, t('senstest.summary')), retry(false)];
+    } else if (p) {
       const next = p.def.steps[p.index + 1];
       actions = next
         ? [h('button', { class: 'primary big', onclick: () => this.handlers.onRoutineNext() }, t('routines.next', { name: scenarioName(next) })),
@@ -779,7 +792,7 @@ export class Menu {
         h('span', { class: 'eyebrow' }, this.resultsEyebrow(r)),
         h('h1', {}, scenarioName(r.key)),
         h('p', { class: 'lead' }, weaponName(r.weapon))),
-      p && this.routineSteps(p),
+      p && !p.test && this.routineSteps(p),
       h('div', { class: 'result-hero' },
         h('div', { class: 'score' }, h('span', { class: 'score-label' }, t('col.score')), h('strong', {}, fmt(r.score)), this.resultBadges(r, entries)),
         h('div', { class: 'actions' }, actions)),
@@ -794,7 +807,7 @@ export class Menu {
   /** Modo de la partida, o el paso de la rutina. */
   resultsEyebrow(r) {
     const p = r.routine;
-    if (p) return t('routines.eyebrow', { name: routineName(p.def), step: p.index + 1, total: p.def.steps.length });
+    if (p) return t(p.test ? 'senstest.eyebrow' : 'routines.eyebrow', { name: routineName(p.def), step: p.index + 1, total: p.def.steps.length });
     return t('results.eyebrow', { mode: r.ranked ? groupName(SCENARIOS[r.key].group) : 'Sandbox' });
   }
 
@@ -802,6 +815,7 @@ export class Menu {
   resultBadges(r, entries) {
     const badge = (text, cls = '') => h('span', { class: `badge ${cls}` }, text);
     if (!r.ranked) return h('div', { class: 'badges' }, badge(t('results.sandbox')));
+    if (r.unsaved) return h('div', { class: 'badges' }, badge(t('results.unsaved')));
     const fmt = SCENARIOS[r.key].formatScore;
     const { best, avg: prevAvg, n } = compareToPrevious(entries, r.t);
     if (best === null) return h('div', { class: 'badges' }, badge(t('results.first')));
@@ -811,6 +825,78 @@ export class Menu {
         ? badge(t('results.record', { prev: fmt(best) }), 'record')
         : badge(t('results.behind', { best: fmt(best), diff: fmt(round1(best - r.score)) })),
       badge(t('results.vsAvg', { diff: signed(fmt, diff), n }), diff >= 0 ? 'up' : 'down'));
+  }
+
+  // ---------- Test de sensibilidad ----------
+
+  /** Tarjeta de Ajustes → Sensibilidad para lanzar los tests. */
+  sensTestCard() {
+    const select = h('select', {}, SENS_TEST_SCENARIOS.map((k) => h('option', { value: k, selected: k === this.sensTestKey }, scenarioName(k))));
+    select.addEventListener('change', () => { this.sensTestKey = select.value; });
+    const start = (kind) => h('button', { class: 'primary', onclick: () => this.handlers.onSensTest(kind, this.sensTestKey) }, t(`senstest.start.${kind}`));
+    return card(t('senstest.card'),
+      h('p', { class: 'muted' }, t('senstest.intro', { s: TEST_DURATION })),
+      h('div', { class: 'actions' }, select, start('ads'), start('hip')));
+  }
+
+  renderSensSummary() {
+    const p = this.results?.routine;
+    if (!p?.test) return [card(null, h('p', { class: 'empty' }, t('senstest.none')))];
+    const { test } = p;
+    const a = analyzeSensTest(test, p.results);
+    const def = SCENARIOS[test.key];
+    const fmt = (x) => def.formatScore(round1(x));
+    const unit = t(test.kind === 'ads' ? 'sens.adsCm360' : 'sens.cm360');
+    const cm = (factor) => (a.baseCm === null ? '—' : (a.baseCm / factor).toFixed(1));
+    const speed = (factor) => (factor === 1 ? t('senstest.current') : `${factor > 1 ? '+' : '−'}${Math.abs(Math.round((factor - 1) * 100))}%`);
+    const fit = a.fit;
+
+    let verdict;
+    if (!fit) verdict = t('senstest.v.few', { n: a.done - a.invalid, min: MIN_RUNS });
+    else if (fit.same) verdict = t('senstest.v.same', { noise: fmt(fit.noise) });
+    else if (fit.clear) verdict = t('senstest.v.clear', { cm: cm(fit.factor), unit, pct: speed(fit.factor), gain: fmt(fit.gain), noise: fmt(fit.noise) }) + (fit.edge ? ` ${t('senstest.v.edge')}` : '');
+    else verdict = t('senstest.v.unclear', { gain: fmt(fit.gain), noise: fmt(fit.noise) });
+
+    // Lo que cambiaría en los ajustes al aplicar la recomendación
+    const changes = fit?.clear ? Object.entries(sensSettings(test, fit.factor)).filter(([k, v]) => v !== this.settings[k]) : [];
+    const apply = () => {
+      for (const [k, v] of changes) {
+        this.settings[k] = v;
+        this.handlers.onChange(k);
+      }
+      test.applied = true;
+      this.render();
+    };
+    const num = (text, cls = '') => h('td', { class: `num ${cls}` }, text);
+    const bestAvg = Math.max(...a.rows.map((r) => r.avg ?? -Infinity));
+
+    return [
+      h('header', { class: 'page-head' },
+        h('span', { class: 'eyebrow' }, t('senstest.card')),
+        h('h1', {}, p.def.name),
+        h('p', { class: 'lead' }, t('senstest.lead', { name: scenarioName(test.key), done: a.done, total: a.total }))),
+      card(t('senstest.result'),
+        h('p', {}, verdict),
+        a.invalid > 0 && h('p', { class: 'muted' }, t('senstest.invalid', { n: a.invalid })),
+        changes.length > 0 && !test.applied && h('ul', { class: 'tips' }, changes.map(([k, v]) => h('li', {}, t('senstest.change', { name: t(fieldText(FIELDS.get(k))), from: this.settings[k], to: v })))),
+        test.applied && h('p', { class: 'muted' }, t('senstest.applied')),
+        h('div', { class: 'actions' },
+          changes.length > 0 && !test.applied && h('button', { class: 'primary', onclick: apply }, t('senstest.apply')),
+          h('button', { onclick: () => this.handlers.onSensTest(test.kind, test.key) }, t('senstest.repeat')),
+          h('button', { onclick: () => this.navigate('settings') }, t('nav.settings')))),
+      card(t('senstest.table'),
+        h('table', { class: 'history' },
+          h('thead', {}, h('tr', {},
+            h('th', {}, unit), h('th', {}, t('senstest.col.speed')), h('th', { class: 'num' }, t('senstest.col.runs')),
+            h('th', { class: 'num' }, t('senstest.col.avg')), h('th', { class: 'num' }, t('an.mismatch')))),
+          h('tbody', {}, a.rows.map((r) => h('tr', { class: fit?.clear && Math.abs(r.factor - fit.factor) < 0.051 ? 'best' : '' },
+            h('td', {}, cm(r.factor)),
+            h('td', {}, speed(r.factor)),
+            num(r.scores.length ? r.scores.map(fmt).join(' · ') : '—'),
+            num(r.avg === null ? '—' : fmt(r.avg), r.avg !== null && r.avg === bestAvg ? 'up' : ''),
+            num(r.mismatch === null ? '—' : `${r.mismatch.toFixed(0)}%`))))),
+        h('p', { class: 'muted small' }, t(`senstest.note.${test.kind}`))),
+    ];
   }
 
   /** Pasos de la rutina con el actual marcado. */

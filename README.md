@@ -17,7 +17,7 @@ No install, no account, no tracking. Everything runs in your browser and your da
 - **Progress tracking.** Personal bests, average of your last 10 runs, trend, daily streak, a progress chart and full history for every scenario.
 - **Score by sensitivity.** If you have played a scenario with more than one sensitivity, its page compares your scores for each hipfire or ADS cm/360.
 - **Aim analysis** after each run: whether you track behind or ahead of the target (in ms), how you handle direction changes, and flick overshoot/undershoot. Its main measures are saved with each run, so you can see them improve over time.
-- **Quick results.** When a run ends your score shows over the game without releasing the mouse: press R to go again, Enter to continue.
+- **Quick results.** When a run ends your score shows over the game without releasing the mouse: press R to go again, Space to continue.
 - **Routines.** Built-in playlists (Warm-up, Tracking, Flicks and precision) plus your own.
 - **Your sight for each weapon** (iron sights, red dot or scope; red dot by default when the weapon has one), which sets the ADS zoom as in the game.
 - **Customizable crosshair** with separate hipfire and ADS profiles, and **crosshair codes** to share yours or import someone else's.
@@ -76,6 +76,7 @@ Your personal settings (sensitivity, FOV, ADS, focal length scaling, crosshair, 
 | Gridshot | Three spheres at once on a grid. Speed and rhythm. |
 | Precision | A small sphere that respawns a few degrees away. Micro-adjustments in ADS. |
 | 3D tracking | A floating sphere with smooth paths in all three dimensions. |
+| Wide 3D tracking | Like 3D tracking in a much wider space: lots of mouse movement, rarely at the center. |
 
 ## Sensitivity and FOV
 
